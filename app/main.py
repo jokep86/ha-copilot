@@ -10,6 +10,7 @@ import os
 import signal
 import sys
 
+from app.ai.mapper import AIActionMapper, PendingActions
 from app.config import load_config
 from app.core.command_queue import CommandQueueManager
 from app.core.degradation import DegradationMap
@@ -23,6 +24,7 @@ from app.ha.websocket import HAWebSocket
 from app.middleware.auth import AuthMiddleware
 from app.observability.health import DeadManSwitch, HealthPulse
 from app.observability.logger import get_logger, setup_logging
+from app.undo.manager import UndoManager
 
 # --- Module imports ---
 from app.ai.engine import AIEngineModule
@@ -61,7 +63,7 @@ async def main() -> None:
     db = Database()
     ha_client = HAClient(SUPERVISOR_TOKEN)
     supervisor_client = SupervisorClient(SUPERVISOR_TOKEN)
-    websocket = HAWebSocket(SUPERVISOR_TOKEN)
+    websocket = HAWebSocket(SUPERVISOR_TOKEN, degradation=degradation)
     discovery = EntityDiscovery(ha_client)
 
     # --- Connect ---
@@ -70,6 +72,12 @@ async def main() -> None:
     await ha_client.connect()
     await supervisor_client.connect()
     await websocket.connect()
+
+    # Subscribe WS state_changed events to invalidate the entity cache
+    async def _on_state_changed(event: dict) -> None:
+        discovery.invalidate(event.get("data", {}).get("entity_id"))
+
+    await websocket.subscribe_events("state_changed", _on_state_changed)
 
     # --- Observability ---
     health_pulse = HealthPulse(config.health_pulse_interval_seconds)
@@ -101,12 +109,29 @@ async def main() -> None:
     registry.register(ExplainModule())
     registry.register(MigrationModule())
 
+    # --- Phase 2 wiring: pending actions, undo, AI mapper ---
+    pending_actions = PendingActions()
+    undo_manager = UndoManager(db=db, ha_client=ha_client)
+    ai_mapper = AIActionMapper(
+        ha_client=ha_client,
+        discovery=discovery,
+        config=config,
+        undo_manager=undo_manager,
+        pending_actions=pending_actions,
+    )
+
     # --- App Context ---
     app_context = AppContext(
         config=config,
         db=db,
         ha_client=ha_client,
         supervisor_client=supervisor_client,
+        extra={
+            "discovery": discovery,
+            "mapper": ai_mapper,
+            "pending_actions": pending_actions,
+            "undo_manager": undo_manager,
+        },
     )
 
     await registry.setup_all(app_context)
@@ -129,6 +154,10 @@ async def main() -> None:
 
     # Wire bot_send into app_context so modules can send Telegram messages
     app_context.bot_send = bot.send_message
+
+    # Wire inline-keyboard callbacks for confirm/cancel/toggle (Phase 2)
+    from app.bot import callbacks as _cb
+    _cb.set_dependencies(pending_actions, ha_client)
 
     # --- Startup Self-Test ---
     self_test = StartupSelfTest(

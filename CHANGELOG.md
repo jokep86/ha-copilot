@@ -5,6 +5,67 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-03-23
+
+### Added — Phase 4: Automation/Scene CRUD + Scheduling
+
+- `app/ai/yaml_generator.py` — `YAMLGenerator`: loads versioned prompts, builds entity
+  context, calls Claude, strips markdown fences, parses YAML with ruamel.yaml,
+  validates with Pydantic (`AutomationConfig` / `SceneConfig`)
+- `prompts/v1/scene_creator.txt` — scene YAML generation prompt with entity context
+- `AutomationsModule` — full implementation:
+  - `/auto` — paginated list with `ha_copilot` tag indicator
+  - `/auto <query> on|off|trigger|show` — enable/disable/trigger/show YAML
+  - `/auto <query> delete` — delete with inline confirm/cancel keyboard via `PendingActions`
+  - `/auto create <description>` — Claude YAML → Pydantic validation → preview →
+    inline confirm → `HAClient.create_automation()`
+- `ScenesModule` — full implementation:
+  - `/scenes` — list all scenes
+  - `/scene <query> activate|delete` — activate or delete with inline confirm
+  - `/scene create <description>` — Claude YAML → preview → inline confirm → create
+- `SchedulerModule` — full implementation:
+  - `/schedule list` — lists automations tagged `ha_copilot_scheduled`
+  - `/schedule cancel <id_or_alias>` — deletes the scheduled automation
+  - NL scheduling path (`/schedule create`) reserved for AIActionMapper extension
+- `ExplainModule` — full implementation:
+  - `/explain auto <query>` — Claude explains automation triggers/conditions/actions
+  - `/explain entity <entity_id>` — Claude explains entity source and usage
+  - `/explain integration <name>` — Claude explains integration with related entities
+  - Uses `prompts/v1/explainer.txt`; AI disabled guard
+- Unit tests: automations (10 tests), explain (6 tests)
+
+## [0.3.0] — 2026-03-23
+
+### Added — Phase 3: System Admin + Power Tools
+
+- `SystemModule` — `/sys`: component health dashboard (DegradationMap emojis, HA version,
+  entity count by domain, Supervisor version, host info, HA OS version)
+- `SupervisorManagerModule` — full implementation:
+  - `/addons` — lists all add-ons with state, version, update-available flag
+  - `/addon <slug> info` — detailed add-on information
+  - `/addon <slug> restart [confirm]` — restart with double-confirm guard
+  - `/backup list` — lists backups with date, size, type
+  - `/backup create` — creates full backup
+  - `/restart core|supervisor [confirm]` — restart with double-confirm
+  - `/reboot [confirm]` — host reboot with double-confirm
+- `LogAnalyzerModule` — full implementation:
+  - `/logs [source] [level]` — reads plain-text logs from core/supervisor/host/<slug>,
+    optional level filter (ERROR, WARNING, etc.), truncated to last 200 lines
+  - `/logs analyze [source]` — extracts error/warning lines → Claude diagnosis
+    using `prompts/v1/log_analyzer.txt` prompt
+- `RawApiModule` — full implementation:
+  - `/raw GET|POST|PUT|DELETE <path> [body]` — direct HA REST API call
+  - `/raw SUP GET|POST <path>` — direct Supervisor API call
+  - GET executes immediately; POST/PUT/DELETE require `confirm` keyword
+  - Results formatted as JSON code block; all calls logged to `raw_api_log`
+- `TemplateTesterModule` — full implementation:
+  - `/template <jinja2>` — evaluate once via HA `POST /api/template`
+  - `/template watch <jinja2>` — re-evaluate every 5s for 60s, edit message in-place
+- `SupervisorClient.get_logs()` — fixed: logs are plain text; added `_request_text()`
+  method alongside existing `_request()` (which expects JSON)
+- `degradation` injected into `AppContext.extra` for SystemModule access
+- Unit tests: system (6 tests), supervisor_mgr (11 tests), log_analyzer (7 tests)
+
 ## [0.2.0] — 2026-03-23
 
 ### Added — Phase 2: Device Control + AI Engine

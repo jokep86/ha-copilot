@@ -128,9 +128,33 @@ class SupervisorClient:
         return await self._request("POST", "/backups/new/full")
 
     async def get_logs(self, source: str = "core") -> str:
-        """Get logs. source: core, supervisor, host, or an add-on slug."""
+        """Get logs as plain text. source: core, supervisor, host, or an add-on slug."""
         if source in ("core", "supervisor", "host"):
             path = f"/{source}/logs"
         else:
             path = f"/addons/{source}/logs"
-        return await self._request("GET", path)
+        return await self._request_text("GET", path)
+
+    async def _request_text(self, method: str, path: str) -> str:
+        """Like _request but returns raw text (for log endpoints)."""
+        url = f"{self.base_url}{path}"
+        last_exc: Exception | None = None
+        for attempt, delay in enumerate((*RETRY_DELAYS, None), start=1):
+            try:
+                async with self.session.request(method, url) as resp:
+                    resp.raise_for_status()
+                    return await resp.text()
+            except Exception as exc:
+                last_exc = exc
+                if delay is not None:
+                    logger.warning(
+                        "supervisor_api_text_retry",
+                        attempt=attempt,
+                        delay=delay,
+                        path=path,
+                        error=str(exc),
+                    )
+                    await asyncio.sleep(delay)
+        raise SupervisorConnectionError(
+            f"Supervisor API unreachable after {len(RETRY_DELAYS)} retries: {last_exc}"
+        )

@@ -131,6 +131,7 @@ async def main() -> None:
             "mapper": ai_mapper,
             "pending_actions": pending_actions,
             "undo_manager": undo_manager,
+            "degradation": degradation,
         },
     )
 

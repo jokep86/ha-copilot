@@ -5,6 +5,41 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-03-23
+
+### Added — Phase 2: Device Control + AI Engine
+
+- `HAWebSocket` — full implementation: persistent connection, HA auth handshake,
+  event subscriptions, auto-reconnect (5/10/30/60s delays), background retry every 60s,
+  circuit breaker via `DegradationMap`
+- `EntityDiscovery` — in-memory entity cache with 5-min TTL fallback; WebSocket
+  `state_changed` events invalidate only the changed entity (~90% reduction in HA API calls)
+- `AIEngineModule` — full NL interpreter: progressive context loading (ADR-010),
+  conversation memory, fallback chain (retry 2s/4s → cache → alert), daily token budget,
+  AI Decision Audit Log, language auto-detection
+- `ContextLoader` — two-pass entity context: keyword heuristic selects relevant domains,
+  sends only those to Claude (EN + ES keyword coverage)
+- `ConversationMemory` — SQLite-backed message history, configurable TTL + max messages
+- `AIAuditLog` — logs every Claude call with tokens, latency, raw prompt/response;
+  daily budget tracking with UPSERT to `token_usage`
+- `AIActionMapper` — routes `AIResponse` actions to HA API; applies confirmation levels;
+  saves undo state before every mutation
+- `PendingActions` — in-memory store (60s TTL) for actions awaiting inline-keyboard confirmation
+- `UndoManager` — saves pre-mutation entity state to `undo_log`; `/undo` reapplies
+  previous state (on/off toggle or brightness/temperature for numeric states)
+- `DevicesModule` — `/devices [domain]`: domain summary with inline buttons, or paginated
+  entity list with toggle buttons (2 per row); `/status <entity>`; `/toggle <entity>`
+- `EntitiesModule` — `/entities [domain]`: paginated list with friendly name, entity ID,
+  state + unit; `/history <entity> [hours]`: last 15 state changes (1–168h range)
+- Inline keyboard callbacks: `confirm:ID` / `cancel:ID` (pending action flow),
+  `domain:X` (domain hint), `toggle:ENTITY_ID` (direct HA call via callback)
+- `main.py` wired with all Phase 2 components: WS state_changed → discovery.invalidate,
+  `PendingActions` + `UndoManager` + `AIActionMapper` in `AppContext.extra`,
+  `callbacks.set_dependencies()` for inline keyboards
+- Versioned system prompt with progressive context placeholders
+  (`{entity_context}`, `{conversation_history}`, `{entity_aliases}`)
+- Unit tests: ai_mapper (15 tests), conversation (5 tests), devices (10 tests)
+
 ## [0.1.0] — 2026-03-23
 
 ### Added

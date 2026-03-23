@@ -25,7 +25,7 @@ Control, monitor, and administer your entire Home Assistant installation from Te
 
 1. Add this repository to HA Supervisor:
    ```
-   https://github.com/pedro/ha-copilot
+   https://github.com/jokep86/ha-copilot
    ```
 2. Install **HA Copilot** from the add-on store
 3. Configure (see below)

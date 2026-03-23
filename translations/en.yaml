@@ -1,0 +1,73 @@
+configuration:
+  telegram_bot_token:
+    name: Telegram Bot Token
+    description: Token from @BotFather for your Telegram bot.
+  allowed_telegram_ids:
+    name: Allowed Telegram IDs
+    description: List of Telegram user IDs that can control this bot.
+  chat_mode:
+    name: Chat Mode
+    description: "Whether to accept commands from private chats, group chats, or both."
+  telegram_mode:
+    name: Telegram Mode
+    description: "polling: works anywhere. webhook: requires externally reachable URL."
+  allowed_group_ids:
+    name: Allowed Group IDs
+    description: If chat_mode includes groups, restrict to these group chat IDs.
+  notification_target:
+    name: Notification Target
+    description: Where to send proactive notifications and alerts.
+  anthropic_api_key:
+    name: Anthropic API Key
+    description: Your API key from console.anthropic.com.
+  ai_enabled:
+    name: AI Enabled
+    description: Enable natural language processing via Claude.
+  ai_model:
+    name: AI Model
+    description: Claude model to use for AI features.
+  ai_max_tokens:
+    name: AI Max Tokens
+    description: Maximum tokens per Claude response.
+  ai_daily_token_budget:
+    name: Daily Token Budget
+    description: Maximum tokens to spend per day across all Claude calls.
+  ai_conversation_memory:
+    name: Conversation Memory
+    description: Remember recent messages for context (e.g. resolving "lower it to 30%").
+  ai_conversation_ttl_minutes:
+    name: Conversation TTL (minutes)
+    description: How long to keep conversation context.
+  ai_conversation_max_messages:
+    name: Max Conversation Messages
+    description: Maximum messages to include in conversation context.
+  log_level:
+    name: Log Level
+    description: Logging verbosity.
+  health_pulse_interval_seconds:
+    name: Health Pulse Interval (seconds)
+    description: How often to emit a "still alive" heartbeat log.
+  dead_man_switch_timeout_seconds:
+    name: Dead Man Switch Timeout (seconds)
+    description: Restart the add-on if silent for this long.
+  health_check_interval_seconds:
+    name: Health Check Interval (seconds)
+    description: How often to run component health checks.
+  daily_digest_enabled:
+    name: Daily Digest
+    description: Send a daily health summary via Telegram.
+  daily_digest_time:
+    name: Daily Digest Time
+    description: "Time to send the daily digest (HH:MM format)."
+  db_purge_days:
+    name: Log Retention (days)
+    description: Delete audit and notification logs older than this many days.
+  auto_fix_max_risk_score:
+    name: Auto-Fix Max Risk Score
+    description: "Maximum risk score for automatic remediation (0=disabled, 1=trivial only, 5=all)."
+  proactive_notifications:
+    name: Proactive Notifications
+    description: Send Telegram messages when subscribed events occur.
+  entity_aliases:
+    name: Entity Aliases
+    description: "Map friendly names to entity IDs for natural language (e.g. {\"sala\": \"light.living_room\"})."

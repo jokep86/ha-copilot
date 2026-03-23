@@ -119,12 +119,13 @@ class LogAnalyzerModule(ModuleBase):
             if re.search(r"\b(ERROR|WARNING|CRITICAL|FATAL|exception|traceback)",
                          l, re.IGNORECASE)
         ]
-        snippet = "\n".join(error_lines[-100:]) if error_lines else "\n".join(lines[-100:])
-        snippet = snippet[:MAX_AI_CHARS]
 
-        if not snippet.strip():
+        if not error_lines:
             await self._reply(context, escape_md(f"No errors found in {source} logs. ✅"))
             return
+
+        snippet = "\n".join(error_lines[-100:])
+        snippet = snippet[:MAX_AI_CHARS]
 
         if not self._app.config.ai_enabled:
             await self._reply(

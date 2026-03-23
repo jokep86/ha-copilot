@@ -11,6 +11,10 @@ import signal
 import sys
 
 from app.ai.mapper import AIActionMapper, PendingActions
+from app.alerts.digest import DailyDigest
+from app.alerts.engine import AlertEngine
+from app.events.listener import EventListener
+from app.events.notifier import Notifier
 from app.config import load_config
 from app.core.command_queue import CommandQueueManager
 from app.core.degradation import DegradationMap
@@ -36,7 +40,9 @@ from app.modules.energy import EnergyModule
 from app.modules.entities import EntitiesModule
 from app.modules.explain import ExplainModule
 from app.modules.log_analyzer import LogAnalyzerModule
+from app.modules.alerts_module import AlertsModule
 from app.modules.migration import MigrationModule
+from app.modules.notifications import NotificationsModule
 from app.modules.quick_actions import QuickActionsModule
 from app.modules.raw_api import RawApiModule
 from app.modules.scenes import ScenesModule
@@ -108,6 +114,8 @@ async def main() -> None:
     registry.register(EnergyModule())
     registry.register(ExplainModule())
     registry.register(MigrationModule())
+    registry.register(NotificationsModule())
+    registry.register(AlertsModule())
 
     # --- Phase 2 wiring: pending actions, undo, AI mapper ---
     pending_actions = PendingActions()
@@ -160,6 +168,36 @@ async def main() -> None:
     from app.bot import callbacks as _cb
     _cb.set_dependencies(pending_actions, ha_client)
 
+    # --- Phase 5: Proactive alerts + notifications ---
+    notifier = Notifier(config=config, db=db)
+    notifier.set_bot_send(bot.send_message)
+
+    event_listener = EventListener(config=config, notifier=notifier)
+    await event_listener.start(websocket)
+
+    alert_engine = AlertEngine(
+        config=config,
+        ha_client=ha_client,
+        supervisor_client=supervisor_client,
+        discovery=discovery,
+        db=db,
+        notifier=notifier,
+    )
+    await alert_engine.start()
+
+    daily_digest = DailyDigest(
+        config=config,
+        alert_engine=alert_engine,
+        notifier=notifier,
+        degradation=degradation,
+    )
+    await daily_digest.start()
+
+    # Inject into AppContext.extra for modules
+    app_context.extra["event_listener"] = event_listener
+    app_context.extra["alert_engine"] = alert_engine
+    app_context.extra["notifier"] = notifier
+
     # --- Startup Self-Test ---
     self_test = StartupSelfTest(
         config=config,
@@ -204,6 +242,8 @@ async def main() -> None:
     # --- Teardown ---
     logger.info("ha_copilot_stopping")
     await bot.stop()
+    await daily_digest.stop()
+    await alert_engine.stop()
     await registry.teardown_all()
     await command_queue.stop_all()
     await health_pulse.stop()

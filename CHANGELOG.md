@@ -5,6 +5,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-03-23
+
+### Added — Phase 5: Proactive Alerts + Notifications
+
+- `app/events/filters.py` — `EventFilter`: domain filter, entity pattern (regex),
+  per-entity cooldown (in-memory monotonic clock), `reset_cooldown()`
+- `app/events/notifier.py` — `Notifier`: sends Telegram message to all allowed users,
+  logs every send to `notification_log`; `set_bot_send()` injected after bot setup
+- `app/events/listener.py` — `EventListener`: subscribes to all configured
+  `notification_events` via HAWebSocket; applies `EventFilter`; formats state_changed
+  and automation_triggered events; per-user enable/disable
+- `app/alerts/conditions.py` — `AlertConditionChecker`: evaluates `device_unavailable`
+  (entities with state="unavailable"), `low_battery` (battery sensor < threshold),
+  `disk_usage` (Supervisor host disk > threshold_percent)
+- `app/alerts/auto_fix.py` — `AutoFix`: risk-scored remediation (risk 1-5); integration
+  reload for unavailable zwave_js/zigbee2mqtt/mqtt/modbus devices (risk 2); auto-backup
+  before risk ≥ 3 actions; respects `auto_fix_max_risk_score` config
+- `app/alerts/engine.py` — `AlertEngine`: asyncio background loop at
+  `health_check_interval_seconds`; DB-backed cooldown check per alert_type+entity_id;
+  logs to `alert_log`; triggers `AutoFix` and sends notification; `get_recent(n)`
+- `app/alerts/digest.py` — `DailyDigest`: sends health summary at configured time
+  (component status + 24h alert counts + auto-fix count)
+- `app/modules/notifications.py` — `NotificationsModule`: `/notify on|off` (per-user
+  toggle), `/subs` (list active subscription types)
+- `app/modules/alerts_module.py` — `AlertsModule`: `/alerts [N]` shows last N alerts
+  from `alert_log` with severity icons and auto-fix details
+- `main.py` wired: `Notifier` → `EventListener.start(ws)` → `AlertEngine.start()` →
+  `DailyDigest.start()`; all injected into `AppContext.extra`
+- Unit tests: event_filters (10 tests), auto_fix (6 tests)
+
 ## [0.4.0] — 2026-03-23
 
 ### Added — Phase 4: Automation/Scene CRUD + Scheduling

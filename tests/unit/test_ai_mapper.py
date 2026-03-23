@@ -38,6 +38,18 @@ def _make_action(**kwargs) -> AIAction:
     return AIAction(**defaults)
 
 
+def _make_response(actions: list, trace_id: str = "t1") -> AIResponse:
+    return AIResponse(
+        actions=actions,
+        trace_id=trace_id,
+        raw_response="{}",
+        prompt_version="v1",
+        model="claude-haiku-4-5-20251001",
+        input_tokens=10,
+        output_tokens=5,
+    )
+
+
 def _make_mapper(config=None) -> tuple[AIActionMapper, MagicMock, MagicMock, MagicMock, PendingActions]:
     ha = MagicMock()
     ha.get_state = AsyncMock(return_value={"state": "off", "attributes": {"friendly_name": "Sala"}})
@@ -141,7 +153,7 @@ class TestAIActionMapperReadOnly:
         mapper, ha, *_ = _make_mapper()
         ctx = _make_context()
         action = _make_action(action_type=ActionType.GET_STATE, entity_id="sensor.temp")
-        response = AIResponse(actions=[action], trace_id="t1")
+        response = _make_response([action])
 
         await mapper.execute(response, ctx)
 
@@ -155,7 +167,7 @@ class TestAIActionMapperReadOnly:
             {"entity_id": "light.sala", "state": "on", "attributes": {"friendly_name": "Sala"}}
         ])
         action = _make_action(action_type=ActionType.LIST_ENTITIES, domain="light")
-        response = AIResponse(actions=[action], trace_id="t1")
+        response = _make_response([action])
 
         await mapper.execute(response, ctx)
 
@@ -164,7 +176,7 @@ class TestAIActionMapperReadOnly:
     async def test_empty_response_sends_clarification(self):
         mapper, *_ = _make_mapper()
         ctx = _make_context()
-        response = AIResponse(actions=[], trace_id="t1")
+        response = _make_response([])
 
         await mapper.execute(response, ctx)
 
@@ -176,7 +188,7 @@ class TestAIActionMapperReadOnly:
         mapper, *_ = _make_mapper()
         ctx = _make_context()
         action = _make_action(action_type=ActionType.UNKNOWN)
-        response = AIResponse(actions=[action], trace_id="t1")
+        response = _make_response([action])
 
         await mapper.execute(response, ctx)
 
@@ -192,7 +204,7 @@ class TestAIActionMapperConfirmation:
         mapper, ha, *_, pending = _make_mapper()
         ctx = _make_context()
         action = _make_action(action_type=ActionType.CALL_SERVICE)
-        response = AIResponse(actions=[action], trace_id="t1")
+        response = _make_response([action])
 
         await mapper.execute(response, ctx)
 
@@ -213,7 +225,7 @@ class TestAIActionMapperConfirmation:
         ha.get_state = AsyncMock(return_value={"state": "off", "attributes": {}})
 
         action = _make_action(action_type=ActionType.CALL_SERVICE)
-        response = AIResponse(actions=[action], trace_id="t1")
+        response = _make_response([action])
 
         await mapper.execute(response, ctx)
 

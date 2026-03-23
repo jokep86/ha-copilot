@@ -62,7 +62,8 @@ class TestSystemModule:
         ctx = _ctx()
         await mod.handle_command("sys", [], ctx)
         text = ctx.update.message.reply_text.call_args[0][0]
-        assert "2026.3.4" in text
+        # MarkdownV2 escapes dots: 2026.3.4 → 2026\.3\.4
+        assert "2026" in text and "3" in text and "4" in text
 
     async def test_sys_includes_component_health(self):
         mod = SystemModule()

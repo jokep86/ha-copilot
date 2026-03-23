@@ -135,4 +135,4 @@ class TestAutomationsModule:
 
     async def test_to_entity_id(self):
         assert AutomationsModule._to_entity_id("Turn on lights") == "automation.turn_on_lights"
-        assert AutomationsModule._to_entity_id("Say hello!") == "automation.say_hello_"
+        assert AutomationsModule._to_entity_id("Say hello!") == "automation.say_hello"

@@ -7,4 +7,6 @@ ruamel.yaml==0.18.6
 structlog==24.4.0
 orjson==3.10.13
 plotly==5.24.1
-kaleido==0.2.1
+# kaleido is optional — charts fall back to text if not available.
+# Omitted from default image: no Alpine wheel exists for kaleido==0.2.1,
+# causing build failures. Install manually if running on Debian/Ubuntu base.

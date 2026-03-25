@@ -220,7 +220,7 @@ class BotHandler:
         if not await self._auth_check(update):
             return
         await update.message.reply_text(
-            _WELCOME_TEXT.format(version=VERSION),
+            _WELCOME_TEXT.format(version=escape_md(VERSION)),
             parse_mode=ParseMode.MARKDOWN_V2,
         )
 
@@ -230,7 +230,7 @@ class BotHandler:
         if not await self._auth_check(update):
             return
         await update.message.reply_text(
-            _HELP_TEXT.format(version=VERSION),
+            _HELP_TEXT.format(version=escape_md(VERSION)),
             parse_mode=ParseMode.MARKDOWN_V2,
         )
 

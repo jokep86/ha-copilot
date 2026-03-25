@@ -1,0 +1,47 @@
+{
+  "version": "1",
+  "description": "Golden pairs for prompt regression testing. Each pair has an input and expected output action_type.",
+  "pairs": [
+    {
+      "id": "turn_on_light_es",
+      "input": "prendé la luz de la sala",
+      "expected_action_type": "call_service",
+      "expected_domain": "light",
+      "expected_service": "turn_on",
+      "notes": "Spanish command — light turn on"
+    },
+    {
+      "id": "turn_off_light_en",
+      "input": "turn off the kitchen light",
+      "expected_action_type": "call_service",
+      "expected_domain": "light",
+      "expected_service": "turn_off",
+      "notes": "English command — light turn off"
+    },
+    {
+      "id": "get_temperature",
+      "input": "what's the temperature in the living room?",
+      "expected_action_type": "get_state",
+      "expected_domain": "sensor",
+      "notes": "State query"
+    },
+    {
+      "id": "create_automation_es",
+      "input": "creá una automatización que apague las luces a medianoche",
+      "expected_action_type": "create_automation",
+      "notes": "Spanish — automation creation"
+    },
+    {
+      "id": "scheduled_command_es",
+      "input": "apagá las luces en 30 minutos",
+      "expected_action_type": "create_automation",
+      "notes": "Scheduled command → one-shot automation"
+    },
+    {
+      "id": "ambiguous_light",
+      "input": "turn on the light",
+      "expected_action_type": "clarification_needed",
+      "notes": "Ambiguous — multiple lights, no context"
+    }
+  ]
+}

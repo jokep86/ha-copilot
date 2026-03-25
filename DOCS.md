@@ -64,12 +64,26 @@ Just type what you want:
 | `/restart core` | Restart HA Core (with confirmation) |
 | `/reboot` | Host reboot (requires PIN) |
 
+### Config & Dashboard
+| Command | Description |
+|---------|-------------|
+| `/config show` | Show configuration.yaml |
+| `/config check` | Validate HA configuration |
+| `/integrations` | List installed integrations |
+| `/users` | List HA users |
+| `/dash` | List Lovelace dashboards and views |
+| `/dash <view> show` | Show view YAML |
+| `/dash suggest` | AI suggests a dashboard layout |
+
 ### AI Tools
 | Command | Description |
 |---------|-------------|
 | `/explain auto <id>` | AI explains an automation |
 | `/explain entity <id>` | AI explains an entity |
+| `/explain integration <name>` | AI explains an integration |
+| `/migrate check` | Detect deprecated integrations and obsolete config |
 | `/template {{ states('sensor.temp') }}` | Evaluate Jinja2 template |
+| `/template watch {{ ... }}` | Live template preview (updates every 5s) |
 | `/raw GET /api/states/light.sala` | Direct API call |
 
 ### Media & Data
@@ -77,10 +91,16 @@ Just type what you want:
 |---------|-------------|
 | `/camera garage` | Camera snapshot |
 | `/chart sensor.temp 48` | History chart (PNG) |
-| `/export automations` | Export as YAML file |
+| `/export automations` | Export automations as YAML file |
+| `/export scenes` | Export scenes as YAML file |
+| `/export config` | Export configuration.yaml |
+| `/audit export 7` | Export last 7 days of AI audit log |
 | `/snapshot save before_update` | Save entity state snapshot |
 | `/snapshot diff before_update` | Compare with current state |
+| `/snapshot list` | List saved snapshots |
 | `/energy today` | Today's energy consumption |
+| `/energy week` | Weekly energy report |
+| `/energy compare` | Compare last 7 days vs previous 7 |
 
 ### Alerts & Monitoring
 | Command | Description |
@@ -91,6 +111,7 @@ Just type what you want:
 | `/schedule list` | Pending scheduled commands |
 | `/audit stats` | AI token usage summary |
 | `/audit cost` | Monthly cost estimate |
+| `/quick` | Show quick action shortcuts |
 
 ---
 

@@ -45,22 +45,59 @@ class EntityDiscovery:
         self,
         query: str,
         domain: Optional[str] = None,
+        fuzzy: bool = True,
     ) -> list[dict]:
         """
-        Simple substring search on entity_id and friendly_name.
-        Phase 2: add fuzzy matching.
+        Search entities by substring match on entity_id and friendly_name.
+        With fuzzy=True (default), also returns close matches using difflib
+        when no exact substring match is found (typo tolerance).
         """
         states = await self.get_all_states()
         q = query.lower()
-        results = []
-        for s in states:
+
+        # Domain filter
+        candidates = [
+            s for s in states
+            if not domain or s.get("entity_id", "").startswith(f"{domain}.")
+        ]
+
+        # Exact substring matches first
+        exact: list[dict] = []
+        for s in candidates:
             eid = s.get("entity_id", "")
             fname = s.get("attributes", {}).get("friendly_name", "")
-            if domain and not eid.startswith(f"{domain}."):
-                continue
             if q in eid.lower() or q in fname.lower():
-                results.append(s)
-        return results
+                exact.append(s)
+
+        if exact or not fuzzy:
+            return exact
+
+        # Fuzzy fallback: difflib close matches on friendly names and entity ids
+        import difflib
+
+        all_names = []
+        name_to_state: dict[str, dict] = {}
+        for s in candidates:
+            eid = s.get("entity_id", "")
+            fname = s.get("attributes", {}).get("friendly_name", eid)
+            all_names.append(eid)
+            name_to_state[eid] = s
+            if fname and fname != eid:
+                all_names.append(fname.lower())
+                name_to_state[fname.lower()] = s
+
+        close = difflib.get_close_matches(q, all_names, n=5, cutoff=0.6)
+        seen: set[str] = set()
+        fuzzy_results: list[dict] = []
+        for match in close:
+            s = name_to_state.get(match)
+            if s:
+                eid = s.get("entity_id", "")
+                if eid not in seen:
+                    seen.add(eid)
+                    fuzzy_results.append(s)
+
+        return fuzzy_results
 
     def invalidate(self, entity_id: Optional[str] = None) -> None:
         """

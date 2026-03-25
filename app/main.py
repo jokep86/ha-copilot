@@ -13,6 +13,7 @@ import sys
 from app.ai.mapper import AIActionMapper, PendingActions
 from app.alerts.digest import DailyDigest
 from app.alerts.engine import AlertEngine
+from app.alerts.watchdog import SelfHealingWatchdog
 from app.events.listener import EventListener
 from app.events.notifier import Notifier
 from app.config import load_config
@@ -41,7 +42,9 @@ from app.modules.entities import EntitiesModule
 from app.modules.explain import ExplainModule
 from app.modules.log_analyzer import LogAnalyzerModule
 from app.modules.alerts_module import AlertsModule
+from app.modules.media import MediaModule
 from app.modules.migration import MigrationModule
+from app.modules.plugins_module import PluginsModule
 from app.modules.notifications import NotificationsModule
 from app.modules.quick_actions import QuickActionsModule
 from app.modules.raw_api import RawApiModule
@@ -113,9 +116,11 @@ async def main() -> None:
     registry.register(SnapshotsModule())
     registry.register(EnergyModule())
     registry.register(ExplainModule())
+    registry.register(MediaModule())
     registry.register(MigrationModule())
     registry.register(NotificationsModule())
     registry.register(AlertsModule())
+    registry.register(PluginsModule())
 
     # --- Phase 2 wiring: pending actions, undo, AI mapper ---
     pending_actions = PendingActions()
@@ -140,10 +145,22 @@ async def main() -> None:
             "pending_actions": pending_actions,
             "undo_manager": undo_manager,
             "degradation": degradation,
+            "websocket": websocket,
         },
     )
 
     await registry.setup_all(app_context)
+
+    # Expose registry in extra so PluginsModule can inspect and hot-reload
+    app_context.extra["registry"] = registry
+
+    # --- Community plugins (Fase 2) ---
+    from app.core.plugin_loader import load_all_plugins
+    plugin_names = load_all_plugins(registry)
+    if plugin_names:
+        for pname in plugin_names:
+            await registry.modules[pname].setup(app_context)
+        logger.info("community_plugins_loaded", count=len(plugin_names), names=plugin_names)
 
     # --- Command Queue ---
     command_queue = CommandQueueManager(timeout=30, max_depth=10)
@@ -192,6 +209,16 @@ async def main() -> None:
         degradation=degradation,
     )
     await daily_digest.start()
+
+    # --- Fase 2: Self-healing watchdog ---
+    watchdog = SelfHealingWatchdog(
+        config=config,
+        ha_client=ha_client,
+        supervisor_client=supervisor_client,
+        db=db,
+        notifier=notifier,
+    )
+    await watchdog.start()
 
     # Inject into AppContext.extra for modules
     app_context.extra["event_listener"] = event_listener
@@ -242,6 +269,7 @@ async def main() -> None:
     # --- Teardown ---
     logger.info("ha_copilot_stopping")
     await bot.stop()
+    await watchdog.stop()
     await daily_digest.stop()
     await alert_engine.stop()
     await registry.teardown_all()

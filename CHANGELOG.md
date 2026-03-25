@@ -5,6 +5,167 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-03-25
+
+### Added — Fase 2: Plugin System + Hot-Reload
+
+- `app/core/plugin_loader.py` — dynamic plugin loader: scans `/data/plugins/*.py`
+  using `importlib.util`; finds first concrete `ModuleBase` subclass; isolated
+  failure handling (broken plugin logs and skips, doesn't block startup);
+  `load_plugin_file(path)` and `load_all_plugins(registry)` public API
+- `app/core/module_registry.py` — `unregister(name)` removes module + commands
+  from registry without teardown; `reload_plugin(name, app, plugins_dir)` hot-reloads
+  a community plugin: teardown → unregister → re-import from file → register → setup;
+  raises `FileNotFoundError` (before destructive steps) if plugin file is missing so
+  built-in modules cannot be accidentally unregistered
+- `app/modules/plugins_module.py` — new module with commands:
+  - `/plugins` — lists all loaded modules (🔌 badge for community plugins)
+  - `/plugins load` — re-scans `/data/plugins/` and loads any new `.py` files
+  - `/reload <name>` — hot-reloads a named community plugin without restarting
+- `app/main.py` — `PluginsModule` registered; registry exposed in `AppContext.extra`;
+  `load_all_plugins()` called after `setup_all` so community plugins receive
+  a fully-initialized `AppContext`
+- `tests/unit/test_plugin_loader.py` — 15 tests covering file loading (valid, no class,
+  unnamed, syntax error, import error), `load_all_plugins` (missing dir, valid, broken
+  skipped, duplicate command, multiple), `unregister`, and `reload_plugin`
+  (happy path, not registered, missing file with rollback safety)
+
+## [0.10.0] — 2026-03-25
+
+### Added — Fase 2: Complex Automations + Automation Edit
+
+- `prompts/v1/automation_creator.txt` — upgraded to full HA automation spec:
+  `choose`, `repeat`, `parallel`, `delay`, `wait_template`, `wait_for_trigger`,
+  `variables`, `stop`, `fire event`; multi-trigger; top-level conditions; `mode: queued`
+  guidance for long automations
+- `app/ai/yaml_generator.py` — `generate_automation_edit(current_yaml, edit_request)`:
+  sends existing YAML + change description to Claude, returns updated `AutomationConfig`;
+  preserves alias/id unless user asks to change them
+- `app/modules/automations.py` — `/auto <query> edit <change request>` command:
+  fetches existing automation JSON, calls `generate_automation_edit`, previews result
+  with confirm/cancel inline keyboard, applies via `create_automation` with original id
+- `tests/unit/test_yaml_generator.py` — 8 new tests: `TestGenerateAutomationEdit`
+  (happy path, invalid output, Claude failure) and `TestComplexAutomationSchema`
+  (choose, repeat, parallel, multiple triggers, conditions block)
+
+## [0.9.0] — 2026-03-25
+
+### Added — Fase 2: Self-Healing Watchdog
+
+- `app/alerts/watchdog.py` — `SelfHealingWatchdog` with three independent asyncio
+  background tasks:
+  - **Stale integration check** (every 15 min): groups all HA entities by domain,
+    applies per-domain staleness thresholds (`sensor` 1h, `binary_sensor` 4h,
+    `climate` 30 min, `weather` 2h, default 2h); alerts if ≥2 entities in a domain
+    exceed their threshold; logs to `incident_log`, sends Telegram notification
+  - **Entity leak check** (every 60 min): compares current domain entity counts
+    against an in-memory baseline; alerts if any domain grows >20%; baseline
+    auto-resets after 24h to avoid false positives from legitimate growth;
+    updates baseline after each alert to prevent repeated notifications
+  - **Post-mortem generation** (every 10 min): queries `alert_log` for
+    `auto_fix_attempted=1` rows not yet linked to a `post_mortem` incident;
+    generates structured post-mortem entry in `incident_log`; sends Telegram
+    summary with detected time, auto-fix action, result, and root cause
+- `app/main.py` — `SelfHealingWatchdog` instantiated after `AlertEngine`;
+  started in startup sequence, stopped gracefully in teardown
+- `tests/unit/test_watchdog.py` — 17 tests covering lifecycle (start/stop),
+  stale check (fresh/single/multi-stale, cross-domain, HA offline tolerance),
+  entity leak (baseline set, threshold, update after alert, 24h reset, offline
+  tolerance), and post-mortem generation (no rows, single row, message content)
+
+## [0.8.0] — 2026-03-25
+
+### Added — Phase 8: Migration + Polish
+
+- `app/modules/migration.py` — full `MigrationModule` (`/migrate check`):
+  collects HA version, installed integrations, and `configuration.yaml` snippet;
+  feeds context to Claude with the migration checker prompt; displays prioritized
+  [CRITICAL/WARNING/INFO] action list; tolerates partial failures (offline HA, missing config file)
+- `app/modules/quick_actions.py` — full `QuickActionsModule` (`/quick`):
+  reads `quick_actions` list from config.yaml; shows inline keyboard of shortcuts;
+  `/quick <name>` executes directly; multi-step actions; partial-failure reporting
+- `app/ha/discovery.py` — fuzzy entity matching: `find_entity()` now accepts
+  `fuzzy=True` (default); when no substring match is found, falls back to
+  `difflib.get_close_matches` on entity IDs and friendly names (cutoff 0.6, n=5)
+- `prompts/v1/migration_checker.txt` — migration analysis prompt: structured
+  [CRITICAL/WARNING/INFO] output format with issue + recommendation per item
+- `app/bot/handler.py` — `/help` text rewritten to include all Phase 6–8 commands
+  (config, integrations, users, dash, camera, chart, export, snapshot, energy,
+  migrate, quick, audit export)
+- `tests/unit/test_migration.py` — 6 tests (AI disabled, Claude called, error handling,
+  HA offline tolerance)
+- `tests/unit/test_quick_actions.py` — 11 tests (no config, keyboard display, execute
+  by name, not found, partial failure, multi-step, fuzzy entity discovery)
+
+## [0.7.0] — 2026-03-24
+
+### Added — Phase 7: Media + Energy + Snapshots
+
+- `app/ha/client.py` — `get_camera_image(entity_id)`: fetch binary camera image from
+  HA camera proxy (`/api/camera_proxy/<entity_id>`) with exponential backoff
+- `app/media/camera.py` — `fetch_snapshot()`: wraps HAClient camera call with
+  domain-specific `CameraError`
+- `app/media/charts.py` — `generate_history_chart()`: plotly line chart PNG from HA
+  state history; returns `None` gracefully when plotly/kaleido not installed
+- `app/media/export.py` — `export_automations()`, `export_scenes()`, `export_config()`,
+  `export_audit_log()`: serialize to YAML/JSON bytes for Telegram document send
+- `app/modules/media.py` — new `MediaModule` (commands: `camera`, `chart`, `export`,
+  `audit`):
+  - `/camera <entity>` — sends camera snapshot photo; short form `front_door` →
+    `camera.front_door`
+  - `/chart <entity> [hours]` — sends plotly PNG history chart; text fallback if
+    plotly unavailable
+  - `/export automations|scenes|config` — sends YAML file as Telegram document
+  - `/audit export [days]` — sends AI audit log as JSON file
+- `app/modules/snapshots.py` — full `SnapshotsModule` implementation:
+  - `/snapshot save [name]` — fetches all current entity states, stores to
+    `entity_snapshots` SQLite table; default name `snap_YYYYMMDD_HHMM`
+  - `/snapshot diff [name]` — compares saved snapshot to current states; shows
+    added/removed/changed entities with old→new state values
+  - `/snapshot list` — lists saved snapshots with timestamp and entity count
+- `app/modules/energy.py` — full `EnergyModule` implementation:
+  - Discovers `sensor` entities with `device_class: energy` or `device_class: power`
+  - `/energy today|week|month` — consumption report with delta kWh per sensor;
+    sends plotly bar chart PNG when available
+  - `/energy compare` — last 7 days vs previous 7 days with % change trend
+  - Power sensors (W/kW) averaged; energy meters (kWh/Wh) use delta (last − first)
+- `app/main.py` — registered `MediaModule`
+- `tests/unit/test_snapshots.py` — 12 tests (save, list, diff, edge cases,
+  `_compute_diff` helper)
+- `tests/unit/test_energy.py` — 13 tests (period range, delta computation, format,
+  module commands)
+- `tests/unit/test_media.py` — 12 tests (camera, chart, export, audit)
+
+## [0.6.0] — 2026-03-24
+
+### Added — Phase 6: Config + Dashboard Management
+
+- `app/ha/websocket.py` — `send_command()`: send arbitrary WS command and await result
+  (used for Lovelace config fetch and auth/list_users)
+- `app/ha/client.py` — `get_config_entries()`: fetch config entries from
+  `/api/config/config_entries/entry` (integrations list)
+- `app/main.py` — added `websocket` to `AppContext.extra` for module access
+- `app/modules/config_manager.py` — full `ConfigManagerModule` implementation:
+  - `/config [show]` — read `/homeassistant/configuration.yaml` from disk, truncated
+    to 3800 chars; displayed as YAML code block
+  - `/config check` — call HA config check API, reports valid/invalid + errors
+  - `/integrations` — list config entries grouped by domain with entry count
+  - `/users` — list HA users via WS `auth/list_users` with admin/active flags
+- `app/modules/dashboards.py` — full `DashboardsModule` implementation:
+  - `/dash` — list Lovelace views from default dashboard (via WS `lovelace/config`)
+    with card counts per view
+  - `/dash <view> show` — display full view YAML (by title or path, truncated)
+  - `/dash suggest` — Claude AI generates a Lovelace view based on current entities
+- `app/ai/yaml_generator.py` — `generate_dashboard()`: Claude-powered Lovelace view
+  YAML generation (returns raw YAML string for user review; no Pydantic validation —
+  Lovelace schema is too open-ended)
+- `prompts/v1/dashboard_creator.txt` — dashboard YAML generation prompt with card type
+  selection rules and grouping guidance
+- `tests/unit/test_config_manager.py` — 9 unit tests (config show, check, integrations,
+  users, error handling)
+- `tests/unit/test_dashboards.py` — 9 unit tests (list views, show by title/path,
+  not found, WS error, suggest with generator mock)
+
 ## [0.5.0] — 2026-03-23
 
 ### Added — Phase 5: Proactive Alerts + Notifications

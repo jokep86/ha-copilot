@@ -302,6 +302,26 @@ class HAWebSocket:
         else:
             logger.debug("ws_unknown_message_type", type=msg_type)
 
+    async def send_command(self, command: dict) -> Any:
+        """
+        Send an arbitrary WS command and await the 'result' field.
+        Raises WebSocketError if not connected or if the command fails.
+        """
+        if not self._connected or not self._ws or self._ws.closed:
+            raise WebSocketError("WebSocket not connected")
+        msg_id = self._next_id()
+        payload = {**command, "id": msg_id}
+        loop = asyncio.get_running_loop()
+        fut: asyncio.Future = loop.create_future()
+        self._pending[msg_id] = fut
+        try:
+            await self._ws.send_json(payload)
+            result = await asyncio.wait_for(asyncio.shield(fut), timeout=10)
+            return result.get("result")
+        except asyncio.TimeoutError:
+            self._pending.pop(msg_id, None)
+            raise WebSocketError("WS command timed out")
+
     def _next_id(self) -> int:
         self._msg_id += 1
         return self._msg_id

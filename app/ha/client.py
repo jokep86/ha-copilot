@@ -182,3 +182,32 @@ class HAClient:
 
     async def delete_scene(self, scene_id: str) -> None:
         await self._request("DELETE", f"/config/scene/config/{scene_id}")
+
+    # --- Camera ---
+
+    async def get_camera_image(self, entity_id: str) -> bytes:
+        """Fetch a raw camera image from the HA camera proxy. Returns bytes."""
+        url = f"{self.base_url}/camera_proxy/{entity_id}"
+        last_exc: Exception | None = None
+        for attempt, delay in enumerate((*RETRY_DELAYS, None), start=1):
+            try:
+                async with self.session.get(url) as resp:
+                    if resp.status == 401:
+                        raise HAAuthError("HA API 401 — check SUPERVISOR_TOKEN")
+                    resp.raise_for_status()
+                    return await resp.read()
+            except HAAuthError:
+                raise
+            except Exception as exc:
+                last_exc = exc
+                if delay is not None:
+                    await asyncio.sleep(delay)
+        raise HAConnectionError(
+            f"Camera proxy unreachable after {len(RETRY_DELAYS)} retries: {last_exc}"
+        )
+
+    # --- Config Entries (Integrations) ---
+
+    async def get_config_entries(self) -> list[dict]:
+        data = await self._request("GET", "/config/config_entries/entry")
+        return data if isinstance(data, list) else []

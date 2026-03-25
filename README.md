@@ -84,13 +84,14 @@ See [CLAUDE.md](CLAUDE.md) for the full engineering spec and architecture.
 | Phase | Description | Status |
 |-------|-------------|--------|
 | 1 | Foundation — bot boots, /start and /help work | ✅ Complete |
-| 2 | Device control via NL | 🔄 Next |
-| 3 | System admin + power tools | ⏳ Planned |
-| 4 | Automation/Scene CRUD + scheduling | ⏳ Planned |
-| 5 | Proactive alerts + notifications | ⏳ Planned |
-| 6 | Config + Dashboard management | ⏳ Planned |
-| 7 | Media + Energy + Snapshots | ⏳ Planned |
-| 8 | Migration assistant + open source | ⏳ Planned |
+| 2 | Device control via NL | ✅ Complete |
+| 3 | System admin + power tools | ✅ Complete |
+| 4 | Automation/Scene CRUD + scheduling | ✅ Complete |
+| 5 | Proactive alerts + notifications | ✅ Complete |
+| 6 | Config + Dashboard management | ✅ Complete |
+| 7 | Media + Energy + Snapshots | ✅ Complete |
+| 8 | Migration assistant + open source polish | ✅ Complete |
+| Fase 2 | Self-healing watchdog (post-MVP) | ✅ Complete |
 
 ## Cost estimate
 

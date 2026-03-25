@@ -1,12 +1,13 @@
 """
-Automation CRUD — Phase 4.
+Automation CRUD — Phase 4 + Fase 2 (complex automations).
 
-/auto                       — list all automations
-/auto <query> on|off        — enable / disable
-/auto <query> trigger       — manual trigger
-/auto <query> show          — display YAML
-/auto <query> delete        — delete (requires confirm)
-/auto create <description>  — Claude YAML → preview → confirm → create
+/auto                                  — list all automations
+/auto <query> on|off                   — enable / disable
+/auto <query> trigger                  — manual trigger
+/auto <query> show                     — display YAML
+/auto <query> delete                   — delete (requires confirm)
+/auto create <description>             — Claude YAML → preview → confirm → create
+/auto <query> edit <change request>    — modify existing automation via Claude
 """
 from __future__ import annotations
 
@@ -128,6 +129,10 @@ class AutomationsModule(ModuleBase):
                 f"{bold(escape_md(alias))}\n```json\n{preview}\n```",
                 parse_mode=ParseMode.MARKDOWN_V2,
             )
+
+        elif action == "edit":
+            edit_request = " ".join(extra_args)
+            await self._cmd_edit(auto, edit_request, context)
 
         elif action in ("on", "off"):
             service = "turn_on" if action == "on" else "turn_off"
@@ -267,6 +272,96 @@ class AutomationsModule(ModuleBase):
         await context.update.message.reply_text(
             f"{bold('Automation preview')}\n```json\n{preview}\n```\n\n"
             f"_Confirm to create in Home Assistant_",
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=keyboard,
+        )
+
+    async def _cmd_edit(
+        self, auto: dict, edit_request: str, context: "CommandContext"
+    ) -> None:
+        """Generate a modified version of an existing automation via Claude."""
+        if not edit_request.strip():
+            await self._reply(context, "Usage: /auto \\<query\\> edit \\<change request\\>")
+            return
+
+        if not self._app.config.ai_enabled:
+            await self._reply(context, "AI is disabled\\. Enable `ai_enabled` to edit automations\\.")
+            return
+
+        alias = auto.get("alias", auto.get("id", "?"))
+        await self._reply(context, f"🤖 Editing automation __{escape_md(alias)}__…")
+
+        if not self._generator:
+            from app.ai.yaml_generator import YAMLGenerator
+            self._generator = YAMLGenerator(
+                config=self._app.config,
+                discovery=self._app.extra.get("discovery"),
+            )
+
+        # Serialise current automation to YAML for the prompt
+        import json
+        import io
+        current_yaml = json.dumps(auto, indent=2, ensure_ascii=False)
+
+        try:
+            updated_config = await self._generator.generate_automation_edit(
+                current_yaml=current_yaml,
+                edit_request=edit_request,
+            )
+        except Exception as exc:
+            await self._reply(context, error_msg(f"Edit generation failed: {exc}"))
+            return
+
+        # Show diff-style preview
+        import json as _json
+        preview = _json.dumps(updated_config.model_dump(exclude_none=True), indent=2)
+        if len(preview) > 2500:
+            preview = preview[:2500] + "\n…"
+
+        pending = self._app.extra.get("pending_actions")
+        if not pending:
+            await self._reply(context, error_msg("Pending actions not available."))
+            return
+
+        captured_config = updated_config
+        captured_id = auto.get("id", "")
+
+        async def _do_update(_action: Any, _ctx: "CommandContext") -> None:
+            try:
+                # HA automation update = delete old + create new with same id
+                payload = captured_config.model_dump(exclude_none=True)
+                if captured_id:
+                    payload["id"] = captured_id
+                await self._ha.create_automation(payload)
+                await _ctx.update.message.reply_text(
+                    success_msg(f"Automation '{captured_config.alias}' updated\\!"),
+                    parse_mode=ParseMode.MARKDOWN_V2,
+                )
+                logger.info(
+                    "automation_updated",
+                    alias=captured_config.alias,
+                    user_id=_ctx.user_id,
+                )
+            except Exception as exc:
+                await _ctx.update.message.reply_text(
+                    error_msg(f"Update failed: {exc}"),
+                    parse_mode=ParseMode.MARKDOWN_V2,
+                )
+
+        action_id = await pending.store(
+            action=None,
+            trace_id=str(uuid.uuid4())[:8],
+            user_id=context.user_id,
+            executor=_do_update,
+            context=context,
+        )
+        keyboard = InlineKeyboardMarkup([[
+            InlineKeyboardButton("✅ Apply", callback_data=f"confirm:{action_id}"),
+            InlineKeyboardButton("❌ Cancel", callback_data=f"cancel:{action_id}"),
+        ]])
+        await context.update.message.reply_text(
+            f"{bold('Updated automation preview')}\n```json\n{preview}\n```\n\n"
+            f"_Confirm to apply in Home Assistant_",
             parse_mode=ParseMode.MARKDOWN_V2,
             reply_markup=keyboard,
         )

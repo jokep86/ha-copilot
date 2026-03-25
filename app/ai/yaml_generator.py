@@ -60,6 +60,47 @@ class YAMLGenerator:
         except Exception as exc:
             raise YAMLGenerationError(f"Automation schema validation failed: {exc}") from exc
 
+    async def generate_dashboard(self, user_request: str) -> str:
+        """Generate a Lovelace view YAML from a NL description. Returns raw YAML string."""
+        prompt_template = self._load_prompt("dashboard_creator.txt")
+        entity_ctx = await self._entity_context()
+        prompt = (
+            prompt_template
+            .replace("{entity_context}", entity_ctx)
+            .replace("{user_request}", user_request)
+        )
+        raw = await self._call_claude(prompt)
+        # Strip fences — return raw YAML string (no Pydantic validation for Lovelace,
+        # schema is too open-ended; caller shows it for user review)
+        cleaned = re.sub(r"^```(?:yaml)?\s*\n?", "", raw.strip(), flags=re.MULTILINE)
+        cleaned = re.sub(r"\n?```\s*$", "", cleaned.strip(), flags=re.MULTILINE)
+        return cleaned.strip()
+
+    async def generate_automation_edit(
+        self, current_yaml: str, edit_request: str
+    ) -> AutomationConfig:
+        """Re-generate an automation by modifying an existing one per the user's edit request."""
+        entity_ctx = await self._entity_context()
+        prompt = (
+            f"You are a Home Assistant automation YAML editor.\n\n"
+            f"The user has an existing automation and wants to modify it.\n"
+            f"Return ONLY the updated YAML — no explanation, no fences.\n\n"
+            f"## Existing automation YAML\n```yaml\n{current_yaml}\n```\n\n"
+            f"## User's edit request\n{edit_request}\n\n"
+            f"## Available entities\n{entity_ctx}\n\n"
+            f"## Rules\n"
+            f"1. Preserve the alias and id unless the user asks to change them.\n"
+            f"2. Apply ONLY the requested changes — keep everything else identical.\n"
+            f"3. Use the full HA automation spec (choose, repeat, parallel, conditions, etc.).\n"
+            f"4. Output only valid HA automation YAML."
+        )
+        raw = await self._call_claude(prompt)
+        data = self._parse_yaml(raw)
+        try:
+            return AutomationConfig(**data)
+        except Exception as exc:
+            raise YAMLGenerationError(f"Edited automation schema validation failed: {exc}") from exc
+
     async def generate_scene(self, user_request: str) -> SceneConfig:
         """Generate and validate a scene config from a NL description."""
         prompt_template = self._load_prompt("scene_creator.txt")

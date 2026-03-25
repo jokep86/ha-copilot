@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wsl bash:*)",
+      "Read(//mnt/c/Users/pedro/Documents/**)",
+      "Bash(wsl -e bash -c \"cd /mnt/c/Users/pedro/Documents/ha-copilot && python -m pytest tests/unit/test_watchdog.py -v 2>&1 | tail -50\")"
+    ]
+  }
+}

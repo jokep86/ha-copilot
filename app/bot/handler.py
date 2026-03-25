@@ -43,8 +43,16 @@ _HELP_TEXT = """\
 /history <entity> \[hours\] — State history
 
 *Automations & Scenes*
-/auto — List automations
-/scenes — List scenes
+/auto — List / create / edit automations \(supports choose, repeat, parallel\)
+/scenes — List / create scenes
+/schedule — Scheduled commands
+/explain — AI documentation
+
+*Config & Dashboard*
+/config — Show / check configuration\.yaml
+/integrations — Installed integrations
+/users — HA users
+/dash — Lovelace dashboards
 
 *System*
 /sys — System health
@@ -54,19 +62,24 @@ _HELP_TEXT = """\
 /restart — Restart core/supervisor
 /reboot — Host reboot
 
+*Media & Data*
+/camera <entity> — Camera snapshot
+/chart <entity> \[hours\] — History chart
+/export automations\|scenes\|config — Export file
+/snapshot — Entity snapshots
+/energy — Energy reports
+
+*Alerts & Notifications*
+/alerts — Recent alerts
+/notify — Notification settings
+/subs — Active subscriptions
+
 *Tools*
 /raw <method> <path> — Direct API call
 /template <jinja2> — Test template
-/snapshot — Entity snapshots
-/energy — Energy reports
-/explain — AI documentation
 /migrate — Migration check
-/schedule — Scheduled commands
-
-*AI & Audit*
-/alerts — Active alerts
-/notify — Notification settings
-/audit — AI usage stats
+/quick — Quick action shortcuts
+/audit export \[days\] — Audit log export
 /undo — Undo last action
 
 _Just type naturally — AI handles it\\._\

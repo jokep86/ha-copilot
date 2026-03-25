@@ -1,0 +1,169 @@
+name: "HA Copilot"
+version: "0.1.0"
+slug: "ha-copilot"
+description: >-
+  Full Home Assistant administration co-pilot via Telegram.
+  AI-powered natural language control, automation CRUD,
+  dashboard management, log analysis, proactive alerts,
+  and system monitoring.
+url: "https://github.com/pedro/ha-copilot"
+arch:
+  - amd64
+  - aarch64
+  - armv7
+startup: application
+boot: auto
+init: false
+watchdog: "tcp://[HOST]:[PORT:8099]"
+
+hassio_api: true
+hassio_role: "admin"
+homeassistant_api: true
+auth_api: true
+
+host_network: false
+
+map:
+  - type: data
+    path: /data
+  - type: homeassistant_config
+    read_only: false
+
+options:
+  # --- Telegram ---
+  telegram_bot_token: ""
+  allowed_telegram_ids:
+    - 0
+  chat_mode: "both"
+  telegram_mode: "polling"
+  allowed_group_ids: []
+  notification_target: "private"
+
+  # --- AI ---
+  anthropic_api_key: ""
+  ai_enabled: true
+  ai_model: "claude-sonnet-4-20250514"
+  ai_max_tokens: 1024
+  ai_daily_token_budget: 500000
+  ai_conversation_memory: true
+  ai_conversation_ttl_minutes: 30
+  ai_conversation_max_messages: 10
+
+  # --- System ---
+  log_level: "info"
+  health_pulse_interval_seconds: 300
+  dead_man_switch_timeout_seconds: 600
+  health_check_interval_seconds: 300
+  daily_digest_enabled: true
+  daily_digest_time: "08:00"
+  db_purge_days: 90
+
+  # --- Alerts ---
+  alert_conditions:
+    - type: "device_unavailable"
+      enabled: true
+      cooldown_seconds: 300
+    - type: "low_battery"
+      enabled: true
+      threshold: 20
+      cooldown_seconds: 3600
+    - type: "disk_usage"
+      enabled: true
+      threshold_percent: 85
+      cooldown_seconds: 3600
+    - type: "integration_error"
+      enabled: true
+      cooldown_seconds: 600
+    - type: "automation_failed"
+      enabled: true
+      cooldown_seconds: 300
+    - type: "critical_log"
+      enabled: true
+      cooldown_seconds: 60
+  auto_fix_max_risk_score: 1
+
+  # --- Notifications ---
+  proactive_notifications: true
+  notification_events:
+    - "state_changed"
+    - "automation_triggered"
+  notification_domains:
+    - "binary_sensor"
+    - "alarm_control_panel"
+  notification_entity_patterns: []
+
+  # --- Entity Aliases ---
+  entity_aliases: {}
+
+  # --- Quick Actions ---
+  quick_actions: []
+
+  # --- Confirmation Levels ---
+  confirmation_levels:
+    none:
+      - "get_state"
+      - "list_entities"
+      - "system_info"
+    single_click:
+      - "call_service_single"
+      - "toggle_automation"
+      - "activate_scene"
+    double_confirm:
+      - "call_service_multi"
+      - "create_automation"
+      - "edit_automation"
+      - "create_scene"
+      - "edit_configuration"
+    password:
+      - "delete_automation"
+      - "delete_scene"
+      - "restart_core"
+      - "restore_backup"
+      - "manage_users"
+      - "host_reboot"
+
+schema:
+  telegram_bot_token: "str"
+  allowed_telegram_ids:
+    - "int"
+  chat_mode: "list(private|group|both)"
+  telegram_mode: "list(polling|webhook)"
+  allowed_group_ids:
+    - "int?"
+  notification_target: "list(private|group|both)"
+  anthropic_api_key: "str"
+  ai_enabled: "bool"
+  ai_model: "str"
+  ai_max_tokens: "int(256,8192)"
+  ai_daily_token_budget: "int(10000,5000000)"
+  ai_conversation_memory: "bool"
+  ai_conversation_ttl_minutes: "int(5,1440)"
+  ai_conversation_max_messages: "int(2,50)"
+  log_level: "list(debug|info|warning|error)"
+  health_pulse_interval_seconds: "int(60,900)"
+  dead_man_switch_timeout_seconds: "int(120,1800)"
+  health_check_interval_seconds: "int(60,3600)"
+  daily_digest_enabled: "bool"
+  daily_digest_time: "str"
+  db_purge_days: "int(7,365)"
+  alert_conditions:
+    - type: "str"
+      enabled: "bool"
+      cooldown_seconds: "int?"
+      threshold: "float?"
+      threshold_percent: "float?"
+  auto_fix_max_risk_score: "int(0,5)"
+  proactive_notifications: "bool"
+  notification_events:
+    - "str"
+  notification_domains:
+    - "str"
+  notification_entity_patterns:
+    - "str?"
+  entity_aliases: {}
+  quick_actions:
+    - name: "str"
+      actions:
+        - service: "str"
+          target: {}
+  confirmation_levels: {}

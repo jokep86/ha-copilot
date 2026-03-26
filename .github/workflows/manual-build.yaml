@@ -1,0 +1,17 @@
+name: Promote to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      image-tag:
+        description: 'Release tag to promote (must start with "release-")'
+        required: true
+        type: string
+
+jobs:
+  promote:
+    uses: jokep86/shared-github-workflows/.github/workflows/docker-promote-to-production.yml@main
+    with:
+      dockerhub-image: jokep/ha-copilot
+      image-tag: ${{ inputs.image-tag }}
+      environment: production

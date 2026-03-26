@@ -1,20 +1,17 @@
-name: Deploy to Docker Hub
+name: Deploy
 
 on:
   push:
     branches:
-      - main
-    tags:
-      - "v*"
+      - '**'
 
 jobs:
   docker:
     uses: jokep86/shared-github-workflows/.github/workflows/docker-build-push-dockerhub.yml@main
     with:
       dockerhub-image: jokep/ha-copilot
-      build-environment: production
+      development-environment: development
       production-environment: production
     secrets:
       dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
-      

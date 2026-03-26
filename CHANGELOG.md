@@ -5,6 +5,74 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.14.0] — 2026-03-26
+
+### Added — Phase 8: Onboarding Wizard
+
+- `migrations/003_app_settings.sql` — `app_settings` key-value table for persistent flags
+- `app/database.py` — `get_setting(key)` / `set_setting(key, value)` helpers using
+  `INSERT OR REPLACE` for upsert semantics
+- `app/bot/handler.py` — `BotHandler` accepts optional `db` param; `_handle_start`
+  checks `onboarded` flag: first `/start` shows full guided wizard (what you can do,
+  getting started steps, quick tips), subsequent calls show a short welcome; flag
+  persisted to `app_settings` on first run
+- `app/main.py` — passes `db=db` to `BotHandler`
+- `tests/unit/test_onboarding.py` — 5 tests: wizard on first run, short welcome on
+  repeat, no-db degraded path, version in output, unauthorized user blocked
+
+## [0.13.0] — 2026-03-26
+
+### Added — Phase 8: Entity Name Fuzzy Matching
+
+- `app/ha/discovery.py` — `resolve_entity_id(query)`: resolves a user-provided string
+  to a single entity_id; exact cache lookup first (fast path for correctly-typed IDs),
+  falls back to `find_entity()` fuzzy search on entity_id + friendly_name; returns
+  `(entity_id, None)` on success or `(None, error_message)` when nothing matches
+- `app/modules/devices.py` — `/status` and `/toggle` now call `resolve_entity_id`
+  before the HA API call; typos like "luz sala" resolve to `light.salon`
+- `app/modules/entities.py` — `/history` uses `resolve_entity_id`
+- `app/modules/media.py` — `/camera` and `/chart` use `resolve_entity_id`;
+  `setup()` now stores `self._discovery` from `AppContext.extra`
+- `tests/unit/test_quick_actions.py` — 4 new tests in `TestResolveEntityId`:
+  exact match, fuzzy friendly-name match, no-match error, partial entity_id match
+
+### Fixed
+
+- `app/bot/handler.py` — `_HELP_TEXT` `>` chars in `<entity>`, `<method>`, `<path>`,
+  `<jinja2>` placeholders were unescaped in MarkdownV2, causing 400 Bad Request on
+  every `/help` invocation; properly escaped as `\\>` in regular string
+- `app/bot/handler.py` — reverted accidental `r"""` raw string on `_HELP_TEXT`
+  which caused a leading `\<newline>` artifact and broke `\\.` MarkdownV2 sequences
+
+## [0.12.0] — 2026-03-25
+
+### Fixed
+- `app/bot/handler.py` — `/start` and `/help` crashed with 400 Bad Request because
+  `VERSION = "0.1.0"` was substituted into MarkdownV2 text without escaping the dots;
+  fixed by passing `escape_md(VERSION)` to `.format()`
+- `app/bot/handler.py` — added global `_handle_error` error handler registered with
+  `add_error_handler`; previously all unhandled exceptions logged "No error handlers
+  are registered" and the user received no feedback
+- `app/ai/mapper.py` — 7 places where dynamic content (exception messages, domain
+  names) was sent via `_reply()` without any MarkdownV2 escaping
+- `app/modules/plugins_module.py` — pre-escaped `\\.` and `\\-` fragments inside
+  `error_msg()` caused double-escaping; replaced with plain text (error_msg calls
+  escape_md itself)
+- `app/modules/quick_actions.py` — `error_msg(...)` result concatenated with raw
+  unescaped f-string; fixed by keeping `available` (already escaped) outside error_msg
+
+### Added — Fase 2: Built-in Module Hot-Reload
+- `app/core/module_registry.py` — `reload_builtin(name, app)`: teardown existing
+  instance → fresh instantiation of same class → register → setup; resets all cached
+  state (entity cache, timers, WS subscriptions) and re-applies current AppContext;
+  tolerates teardown failures (logs warning, continues)
+- `app/modules/plugins_module.py` — `/reload` now tries community plugin reload first
+  (file re-import), falls back to `reload_builtin` for built-in modules; both paths
+  give distinct success messages so the user knows which type of reload ran
+- `tests/unit/test_plugin_loader.py` — 5 new tests for `reload_builtin`
+  (fresh instance, setup called, teardown called, not registered error,
+  teardown failure tolerance)
+
 ## [0.11.0] — 2026-03-25
 
 ### Added — Fase 2: Plugin System + Hot-Reload

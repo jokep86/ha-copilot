@@ -17,6 +17,7 @@ def _make_app(entities: list | None = None, domains: dict | None = None):
     discovery = MagicMock()
     discovery.get_entities_by_domain = AsyncMock(return_value=entities or [])
     discovery.get_domains = AsyncMock(return_value=domains or {"light": 3, "switch": 2})
+    discovery.resolve_entity_id = AsyncMock(return_value=("light.sala", None))
 
     app = MagicMock()
     app.ha_client = ha

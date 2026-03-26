@@ -220,3 +220,98 @@ class TestReloadPlugin:
 
         # Original module should still be registered after failed reload
         assert "builtin_mod" in registry.modules
+
+
+# ---------------------------------------------------------------------------
+# ModuleRegistry.reload_builtin
+# ---------------------------------------------------------------------------
+
+class TestReloadBuiltin:
+    def _make_real_module_class(self, name: str, commands: list[str]):
+        """Create a concrete ModuleBase subclass (not a Mock) so type(instance) works."""
+        from app.core.module_base import ModuleBase as _MB
+
+        _name = name
+        _commands = commands
+
+        class _Mod(_MB):
+            name = _name
+            description = "test"
+            commands = _commands
+
+            async def setup(self, app): pass
+            async def teardown(self): pass
+            async def handle_command(self, cmd, args, context): pass
+
+        return _Mod
+
+    async def test_reloads_builtin_with_fresh_instance(self):
+        registry = ModuleRegistry()
+        cls = self._make_real_module_class("builtin_a", ["bcmd"])
+        original = cls()
+        registry.register(original)
+
+        app_ctx = MagicMock()
+        await registry.reload_builtin("builtin_a", app_ctx)
+
+        assert "builtin_a" in registry.modules
+        new_inst = registry.modules["builtin_a"]
+        assert new_inst is not original
+        assert isinstance(new_inst, cls)
+
+    async def test_new_instance_has_setup_called(self):
+        registry = ModuleRegistry()
+        cls = self._make_real_module_class("builtin_b", ["bcmd2"])
+        registry.register(cls())
+
+        app_ctx = MagicMock()
+        setup_calls = []
+
+        # Patch setup on the class so all new instances are tracked
+        original_setup = cls.setup
+        async def _tracked_setup(self, app):
+            setup_calls.append(app)
+        cls.setup = _tracked_setup
+
+        await registry.reload_builtin("builtin_b", app_ctx)
+
+        cls.setup = original_setup  # restore
+        assert len(setup_calls) == 1
+        assert setup_calls[0] is app_ctx
+
+    async def test_original_teardown_called(self):
+        registry = ModuleRegistry()
+        cls = self._make_real_module_class("builtin_c", ["bcmd3"])
+        original = cls()
+        teardown_called = []
+
+        async def _tracked_teardown(self):
+            teardown_called.append(True)
+        original.teardown = lambda: _tracked_teardown(original)  # type: ignore
+
+        # Use AsyncMock directly on the instance
+        original.teardown = AsyncMock()
+        registry.register(original)
+
+        app_ctx = MagicMock()
+        await registry.reload_builtin("builtin_c", app_ctx)
+
+        original.teardown.assert_called_once()
+
+    async def test_raises_when_not_registered(self):
+        registry = ModuleRegistry()
+        with pytest.raises(KeyError, match="not registered"):
+            await registry.reload_builtin("nonexistent", MagicMock())
+
+    async def test_tolerates_teardown_failure(self):
+        """Reload continues even if teardown raises."""
+        registry = ModuleRegistry()
+        cls = self._make_real_module_class("builtin_d", ["bcmd4"])
+        original = cls()
+        original.teardown = AsyncMock(side_effect=Exception("teardown error"))  # type: ignore
+        registry.register(original)
+
+        app_ctx = MagicMock()
+        # Should not raise
+        await registry.reload_builtin("builtin_d", app_ctx)
+        assert "builtin_d" in registry.modules

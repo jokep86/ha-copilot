@@ -1,0 +1,37 @@
+version: "3.9"
+
+# Local development — runs ha-copilot against your real HA instance.
+# 1. Copy .env.dev to .env and fill in your values
+# 2. Fill in tests/fixtures/options.dev.json with real credentials
+# 3. docker compose -f docker-compose.dev.yml up --build
+
+services:
+  ha-copilot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_FROM: ghcr.io/home-assistant/amd64-base-python:3.12-alpine3.19
+    env_file: .env
+    environment:
+      # URL overrides — point at real HA instead of http://supervisor
+      - HA_API_URL=${HA_API_URL}
+      - SUPERVISOR_URL=${SUPERVISOR_URL}
+      - HA_WS_URL=${HA_WS_URL}
+      - SUPERVISOR_TOKEN=${SUPERVISOR_TOKEN}
+      # Use local config file instead of /data/options.json
+      - HA_OPTIONS_PATH=/app/tests/fixtures/options.dev.json
+    volumes:
+      # Persist DB and logs between runs
+      - ./dev-data:/data
+      # Mount source for quick iteration (comment out to use built image)
+      - ./app:/app/app
+      - ./prompts:/app/prompts
+      - ./migrations:/app/migrations
+      # Mount tests/ so options.dev.json is accessible inside the container
+      - ./tests:/app/tests
+      # Local HA config dir (for /config show, /migrate check)
+      - ${HA_CONFIG_DIR:-./dev-ha-config}:/homeassistant:ro
+    ports:
+      - "8099:8099"
+    restart: "no"

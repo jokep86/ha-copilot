@@ -3,7 +3,26 @@
     "allow": [
       "Bash(wsl bash:*)",
       "Read(//mnt/c/Users/pedro/Documents/**)",
-      "Bash(wsl -e bash -c \"cd /mnt/c/Users/pedro/Documents/ha-copilot && python -m pytest tests/unit/test_watchdog.py -v 2>&1 | tail -50\")"
+      "Bash(wsl -e bash -c \"cd /mnt/c/Users/pedro/Documents/ha-copilot && python -m pytest tests/unit/test_watchdog.py -v 2>&1 | tail -50\")",
+      "Bash(wsl -e bash -c \"cd /mnt/c/Users/pedro/Documents/ha-copilot && python3 -m pytest tests/unit/ -x -q 2>&1 | tail -30\")",
+      "Bash(wsl -e bash -c \"cd /mnt/c/Users/pedro/Documents/ha-copilot && docker compose -f docker-compose.dev.yml logs --tail=50 2>&1\")",
+      "Bash(wsl -e bash -c \"grep -n ''GET_STATE\\\\|get_state\\\\|reply\\\\|f\"\"'' /mnt/c/Users/pedro/Documents/ha-copilot/app/ai/mapper.py | grep -v ''import\\\\|#\\\\|logger\\\\|action\\\\|TYPE'' | head -40\")",
+      "Bash(wsl -e bash -c \"cd /mnt/c/Users/pedro/Documents/ha-copilot && docker compose -f docker-compose.dev.yml logs --since=1h 2>&1 | grep -E ''error|Error|ERROR|warning|Warning|WARNING|unhandled|Bad Request|400|parse_entit'' | grep -v ''__pycache__\\\\|httpcore\\\\|httpx\\\\|telegram.ext\\\\|anthropic'' | head -40\")",
+      "Bash(wsl -e bash -c \"python3 -W error -c ''import sys; sys.path.insert\\(0, \"\"/mnt/c/Users/pedro/Documents/ha-copilot\"\"\\); from app.bot.handler import _HELP_TEXT, _WELCOME_TEXT; print\\(\"\"OK\"\", len\\(_HELP_TEXT\\), \"\"chars\"\"\\)'' 2>&1\")",
+      "Bash(wsl -e bash -c \"cd /mnt/c/Users/pedro/Documents/ha-copilot && docker compose -f docker-compose.dev.yml logs --tail=50 2>&1 | grep -E ''ai|claude|anthropic|error|Error|unavail'' | grep -v ''httpcore\\\\|httpx\\\\|telegram.ext\\\\|supervisor_api\\\\|watchdog\\\\|ha_api_retry'' | head -30\")",
+      "Bash(wsl -e bash -c \"cd /mnt/c/Users/pedro/Documents/ha-copilot && docker compose -f docker-compose.dev.yml logs --tail=100 2>&1 | grep -E ''AIServiceUnavailable|ai_unavail|budget|fallback|retry|claude_api|engine|process_nl|ai_handle'' | head -20\")",
+      "Bash(wsl -e bash -c \"cd /mnt/c/Users/pedro/Documents/ha-copilot && python3 -m pytest tests/unit/ -q --tb=no --co 2>&1 | grep ''test session\\\\|collected\\\\|ERROR'' | head -5\")",
+      "Bash(wsl -e bash -c \"cd /mnt/c/Users/pedro/Documents/ha-copilot && ls tests/unit/ | sort\")",
+      "Bash(wsl -e bash -c \"tail -60 /mnt/c/Users/pedro/Documents/ha-copilot/CHANGELOG.md\")",
+      "Bash(wsl -e bash -c \"head -30 /mnt/c/Users/pedro/Documents/ha-copilot/CHANGELOG.md\")",
+      "Bash(wsl -e bash -c \"grep ''^## \\\\['' /mnt/c/Users/pedro/Documents/ha-copilot/CHANGELOG.md\")",
+      "Bash(wsl -e bash -c \"grep -E ''^## \\\\[0\\\\.\\(9|10|11|12\\)\\\\]'' -A 30 /mnt/c/Users/pedro/Documents/ha-copilot/CHANGELOG.md | head -80\")",
+      "Bash(wsl -e bash -c \"sed -n ''/\\\\[0\\\\.9\\\\.0\\\\]/,/\\\\[0\\\\.8\\\\.0\\\\]/p'' /mnt/c/Users/pedro/Documents/ha-copilot/CHANGELOG.md | head -40\")",
+      "Bash(wsl -e bash -c \"sed -n ''/\\\\[0\\\\.10\\\\.0\\\\]/,/\\\\[0\\\\.9\\\\.0\\\\]/p'' /mnt/c/Users/pedro/Documents/ha-copilot/CHANGELOG.md | head -50\")",
+      "Bash(wsl -e bash -c \"sed -n ''/\\\\[0\\\\.11\\\\.0\\\\]/,/\\\\[0\\\\.10\\\\.0\\\\]/p'' /mnt/c/Users/pedro/Documents/ha-copilot/CHANGELOG.md | head -50\")",
+      "Bash(wsl -e bash -c \"grep -rn ''find_entity\\\\|fuzzy'' /mnt/c/Users/pedro/Documents/ha-copilot/app/ --include=''*.py'' | grep -v ''__pycache__\\\\|discovery.py'' | head -20\")",
+      "Bash(wsl -e bash -c \"grep -n ''entity_id\\\\|get_state\\\\|args\\\\[0\\\\]'' /mnt/c/Users/pedro/Documents/ha-copilot/app/modules/entities.py | head -30\")",
+      "Bash(wsl -e bash -c \"grep -n ''handle_command\\\\|_cmd_status\\\\|get_state\\\\|args\\\\[0\\\\]'' /mnt/c/Users/pedro/Documents/ha-copilot/app/modules/entities.py | head -20\")"
     ]
   }
 }

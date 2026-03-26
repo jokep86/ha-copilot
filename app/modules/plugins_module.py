@@ -127,9 +127,9 @@ class PluginsModule(ModuleBase):
         await self._reply(context, "\n".join(parts))
 
     async def _cmd_reload(self, module_name: str, context: "CommandContext") -> None:
-        """Hot-reload a plugin by name."""
+        """Hot-reload any module — plugin (re-imports file) or built-in (fresh instance)."""
         if not module_name:
-            await self._reply(context, "Usage: /reload \\<plugin\\_name\\>")
+            await self._reply(context, "Usage: /reload \\<module\\_name\\>")
             return
 
         registry = self._app.extra.get("registry")
@@ -145,14 +145,21 @@ class PluginsModule(ModuleBase):
             return
 
         try:
+            # Try community plugin reload first (re-imports from /data/plugins/)
             await registry.reload_plugin(module_name, self._app)
-            await self._reply(context, success_msg(f"Plugin '{module_name}' reloaded."))
+            await self._reply(context, success_msg(f"Plugin '{module_name}' reloaded from file."))
             logger.info("plugin_reloaded_via_command", name=module_name)
-        except FileNotFoundError as exc:
-            await self._reply(
-                context,
-                error_msg(f"Cannot reload '{module_name}': {exc}\\. Only community plugins can be hot\\-reloaded\\."),
-            )
+        except FileNotFoundError:
+            # Built-in module — teardown + fresh instantiation of same class
+            try:
+                await registry.reload_builtin(module_name, self._app)
+                await self._reply(
+                    context,
+                    success_msg(f"Module '{module_name}' reloaded (state reset, config reapplied)."),
+                )
+                logger.info("builtin_reloaded_via_command", name=module_name)
+            except Exception as exc:
+                await self._reply(context, error_msg(f"Reload failed: {exc}"))
         except Exception as exc:
             await self._reply(context, error_msg(f"Reload failed: {exc}"))
 

@@ -134,6 +134,32 @@ class ModuleRegistry:
         await new_instance.setup(app)
         logger.info("plugin_reloaded", name=name, file=plugin_path.name)
 
+    async def reload_builtin(self, name: str, app: "AppContext") -> None:
+        """
+        Hot-reload a built-in module: teardown + fresh instantiation + setup.
+        Does NOT re-import from file — instantiates the same class already in memory.
+        Resets all instance state (caches, connections, timers) and re-runs setup
+        with the current AppContext. Useful after config changes or to recover a
+        module stuck in a bad state.
+        """
+        if name not in self._modules:
+            raise KeyError(f"Module '{name}' not registered")
+
+        existing = self._modules[name]
+        cls = type(existing)
+
+        try:
+            await existing.teardown()
+        except Exception as exc:
+            logger.warning("reload_teardown_failed", name=name, error=str(exc))
+
+        self.unregister(name)
+
+        new_instance = cls()
+        self.register(new_instance)
+        await new_instance.setup(app)
+        logger.info("builtin_reloaded", name=name, module_class=cls.__name__)
+
     @property
     def modules(self) -> dict[str, ModuleBase]:
         return dict(self._modules)

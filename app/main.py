@@ -175,6 +175,7 @@ async def main() -> None:
         auth=auth,
         degradation=degradation,
         dead_man_switch=dead_man_switch,
+        db=db,
     )
     await bot.setup()
 

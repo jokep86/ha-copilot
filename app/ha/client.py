@@ -14,7 +14,8 @@ from app.observability.logger import get_logger
 
 logger = get_logger(__name__)
 
-HA_BASE_URL = "http://supervisor/core/api"
+import os
+HA_BASE_URL = os.environ.get("HA_API_URL", "http://supervisor/core/api")
 RETRY_DELAYS = (1, 2, 4)
 
 

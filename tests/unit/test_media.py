@@ -36,6 +36,9 @@ def _app(camera_bytes=b"FAKEJPEG", state=None, history=None, db=None):
         return_value=[{"name": "Evening", "entities": {}}]
     )
     app.db = db or MagicMock()
+    discovery = MagicMock()
+    discovery.resolve_entity_id = AsyncMock(return_value=("sensor.temp", None))
+    app.extra = {"discovery": discovery}
     return app
 
 
@@ -70,6 +73,7 @@ class TestMediaModule:
         """'front_door' should be expanded to 'camera.front_door'."""
         m = MediaModule()
         app = _app()
+        app.extra["discovery"].resolve_entity_id = AsyncMock(return_value=("camera.front_door", None))
         await m.setup(app)
         ctx = _context()
         await m.handle_command("camera", ["front_door"], ctx)

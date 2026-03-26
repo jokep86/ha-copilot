@@ -99,6 +99,32 @@ class EntityDiscovery:
 
         return fuzzy_results
 
+    async def resolve_entity_id(self, query: str) -> tuple[str | None, str | None]:
+        """
+        Resolve a user query to a single entity_id.
+        Returns (entity_id, None) on success, (None, error_message) on failure.
+
+        Strategy:
+        1. Exact match in cache (fast path for correctly-typed entity_ids)
+        2. Fuzzy search on entity_id + friendly_name via find_entity()
+        3. Multiple fuzzy matches → return the best-ranked one (difflib order)
+        """
+        states = await self.get_all_states()
+
+        # Fast path: exact entity_id match
+        if "." in query:
+            for s in states:
+                if s.get("entity_id") == query:
+                    return query, None
+
+        # Fuzzy search
+        matches = await self.find_entity(query, fuzzy=True)
+        if not matches:
+            return None, f"No entity found matching '{query}'"
+
+        # Return best match; if multiple, caller may log the ambiguity
+        return matches[0].get("entity_id", query), None
+
     def invalidate(self, entity_id: Optional[str] = None) -> None:
         """
         Invalidate cache entry.

@@ -147,3 +147,50 @@ class TestFuzzyEntityDiscovery:
         results = await d.find_entity("room", domain="sensor")
         # "living_room" is a light not a sensor — should be excluded
         assert all(r["entity_id"].startswith("sensor.") for r in results)
+
+
+class TestResolveEntityId:
+    """Tests for EntityDiscovery.resolve_entity_id."""
+
+    def _make_states(self):
+        return [
+            {"entity_id": "light.living_room", "state": "on", "attributes": {"friendly_name": "Living Room Light"}},
+            {"entity_id": "sensor.temperature", "state": "22", "attributes": {"friendly_name": "Temperature Sensor"}},
+        ]
+
+    async def test_exact_entity_id_match(self):
+        from app.ha.discovery import EntityDiscovery
+        ha = MagicMock()
+        ha.get_states = AsyncMock(return_value=self._make_states())
+        d = EntityDiscovery(ha)
+        eid, err = await d.resolve_entity_id("light.living_room")
+        assert eid == "light.living_room"
+        assert err is None
+
+    async def test_fuzzy_friendly_name_match(self):
+        from app.ha.discovery import EntityDiscovery
+        ha = MagicMock()
+        ha.get_states = AsyncMock(return_value=self._make_states())
+        d = EntityDiscovery(ha)
+        eid, err = await d.resolve_entity_id("living room light")
+        assert eid == "light.living_room"
+        assert err is None
+
+    async def test_no_match_returns_error(self):
+        from app.ha.discovery import EntityDiscovery
+        ha = MagicMock()
+        ha.get_states = AsyncMock(return_value=self._make_states())
+        d = EntityDiscovery(ha)
+        eid, err = await d.resolve_entity_id("xxxxxnomatchxxxxx")
+        assert eid is None
+        assert err is not None
+        assert "xxxxxnomatchxxxxx" in err
+
+    async def test_partial_entity_id_match(self):
+        from app.ha.discovery import EntityDiscovery
+        ha = MagicMock()
+        ha.get_states = AsyncMock(return_value=self._make_states())
+        d = EntityDiscovery(ha)
+        eid, err = await d.resolve_entity_id("temperature")
+        assert eid == "sensor.temperature"
+        assert err is None

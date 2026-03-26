@@ -24,7 +24,8 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-WS_URL = "ws://supervisor/core/websocket"
+import os
+WS_URL = os.environ.get("HA_WS_URL", "ws://supervisor/core/websocket")
 RECONNECT_DELAYS = (5, 10, 30, 60)
 BACKGROUND_RETRY_INTERVAL = 60
 

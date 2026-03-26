@@ -35,6 +35,7 @@ class MediaModule(ModuleBase):
     async def setup(self, app: "AppContext") -> None:
         self._app = app
         self._ha = app.ha_client
+        self._discovery = app.extra.get("discovery")
 
     async def teardown(self) -> None:
         pass
@@ -61,10 +62,17 @@ class MediaModule(ModuleBase):
             await self._reply(context, "Usage: `/camera <entity_id>`")
             return
 
-        entity_id = args[0]
+        raw = args[0]
         # Allow short form: "front_door" → "camera.front_door"
-        if "." not in entity_id:
-            entity_id = f"camera.{entity_id}"
+        if "." not in raw:
+            raw = f"camera.{raw}"
+        if self._discovery:
+            entity_id, err = await self._discovery.resolve_entity_id(raw)
+            if err:
+                await self._reply(context, error_msg(err))
+                return
+        else:
+            entity_id = raw
 
         try:
             from app.media.camera import fetch_snapshot, CameraError
@@ -84,7 +92,13 @@ class MediaModule(ModuleBase):
             await self._reply(context, "Usage: `/chart <entity_id> [hours]`")
             return
 
-        entity_id = args[0]
+        if self._discovery:
+            entity_id, err = await self._discovery.resolve_entity_id(args[0])
+            if err:
+                await self._reply(context, error_msg(err))
+                return
+        else:
+            entity_id = args[0]
         hours = _DEFAULT_CHART_HOURS
         if len(args) > 1:
             try:

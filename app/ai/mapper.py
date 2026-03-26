@@ -58,7 +58,7 @@ class AIActionMapper:
     ) -> None:
         """Route all actions in the response."""
         if not response.actions:
-            await self._reply(context, "I couldn't understand that. Try rephrasing.")
+            await self._reply(context, "I couldn't understand that\\. Try rephrasing\\.")
             return
 
         for action in response.actions:
@@ -84,7 +84,7 @@ class AIActionMapper:
             return
 
         if atype == ActionType.SYSTEM_INFO:
-            await self._reply(context, "Use /sys for system info.")
+            await self._reply(context, "Use /sys for system info\\.")
             return
 
         if atype == ActionType.CLARIFICATION_NEEDED:
@@ -145,7 +145,8 @@ class AIActionMapper:
             )
             return
 
-        await self._reply(context, f"Action `{atype.value}` not yet implemented\\.")
+        from app.bot.formatters import code
+        await self._reply(context, f"Action {code(atype.value)} not yet implemented\\.")
 
     # ------------------------------------------------------------------ #
     # Confirmation flow
@@ -222,7 +223,8 @@ class AIActionMapper:
             )
             await context.update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN_V2)
         except Exception as exc:
-            await self._reply(context, f"Could not get state: {exc}")
+            from app.bot.formatters import error_msg
+            await self._reply(context, error_msg(f"Could not get state: {exc}"))
 
     async def _do_list_entities(self, action: Any, context: "CommandContext") -> None:
         from app.bot.formatters import escape_md
@@ -235,7 +237,7 @@ class AIActionMapper:
             entities = await self.discovery.get_all_states()
 
         if not entities:
-            await self._reply(context, f"No entities found for domain '{domain}'.")
+            await self._reply(context, escape_md(f"No entities found for domain '{domain}'."))
             return
 
         lines = [f"*{escape_md(domain or 'All')} entities:*"]
@@ -245,7 +247,7 @@ class AIActionMapper:
             fname = e.get("attributes", {}).get("friendly_name", eid)
             lines.append(f"• {escape_md(fname)} — {escape_md(state)}")
         if len(entities) > 20:
-            lines.append(f"_… and {len(entities) - 20} more\\. Use /entities {domain or ''}_")
+            lines.append(f"_… and {len(entities) - 20} more\\. Use /entities {escape_md(domain or '')}_")
 
         await context.update.message.reply_text(
             "\n".join(lines),
@@ -285,7 +287,8 @@ class AIActionMapper:
                 parse_mode=ParseMode.MARKDOWN_V2,
             )
         except Exception as exc:
-            await self._reply(context, f"Service call failed: {exc}")
+            from app.bot.formatters import error_msg
+            await self._reply(context, error_msg(f"Service call failed: {exc}"))
 
     async def _do_activate_scene(self, action: Any, context: "CommandContext") -> None:
         try:
@@ -297,7 +300,8 @@ class AIActionMapper:
                 parse_mode=ParseMode.MARKDOWN_V2,
             )
         except Exception as exc:
-            await self._reply(context, f"Scene activation failed: {exc}")
+            from app.bot.formatters import error_msg
+            await self._reply(context, error_msg(f"Scene activation failed: {exc}"))
 
     async def _do_automation_op(self, action: Any, context: "CommandContext") -> None:
         atype = action.action_type
@@ -323,7 +327,8 @@ class AIActionMapper:
                 parse_mode=ParseMode.MARKDOWN_V2,
             )
         except Exception as exc:
-            await self._reply(context, f"Automation operation failed: {exc}")
+            from app.bot.formatters import error_msg
+            await self._reply(context, error_msg(f"Automation operation failed: {exc}"))
 
     async def _reply(self, context: "CommandContext", text: str) -> None:
         from telegram.constants import ParseMode

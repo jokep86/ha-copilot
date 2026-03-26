@@ -97,7 +97,10 @@ class EntitiesModule(ModuleBase):
             await self._reply(context, "Usage: /history \\<entity\\_id\\> \\[hours\\]")
             return
 
-        entity_id = args[0]
+        entity_id, err = await self._discovery.resolve_entity_id(args[0])
+        if err:
+            await self._reply(context, error_msg(err))
+            return
         hours = 24
         if len(args) > 1:
             try:

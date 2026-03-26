@@ -96,7 +96,7 @@ class QuickActionsModule(ModuleBase):
             available = ", ".join(escape_md(qa.name) for qa in actions)
             await self._reply(
                 context,
-                error_msg(f"Quick action '{name}' not found.") + f"\nAvailable: {available}",
+                error_msg(f"Quick action '{name}' not found. Available: ") + available,
             )
             return
 

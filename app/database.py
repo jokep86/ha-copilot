@@ -144,3 +144,27 @@ class Database:
     async def get_size_bytes(self) -> int:
         """Return current DB file size in bytes."""
         return self.db_path.stat().st_size if self.db_path.exists() else 0
+
+    # --- App settings ---
+
+    async def get_setting(self, key: str, default: str | None = None) -> str | None:
+        """Read a key from app_settings. Returns default if not found."""
+        cursor = await self.conn.execute(
+            "SELECT value FROM app_settings WHERE key = ?", (key,)
+        )
+        row = await cursor.fetchone()
+        return row[0] if row else default
+
+    async def set_setting(self, key: str, value: str) -> None:
+        """Write or update a key in app_settings."""
+        await self.conn.execute(
+            """
+            INSERT INTO app_settings (key, value, updated_at)
+            VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+            ON CONFLICT(key) DO UPDATE SET
+                value = excluded.value,
+                updated_at = excluded.updated_at
+            """,
+            (key, value),
+        )
+        await self.conn.commit()

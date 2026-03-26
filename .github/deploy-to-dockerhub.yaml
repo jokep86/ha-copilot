@@ -1,0 +1,9 @@
+jobs:
+  docker:
+    uses: jokep86/shared-github-workflows/.github/workflows/docker-build-push-dockerhub.yml@main
+    with:
+      dockerhub-image: jokep/ha-copilot
+      environment: production
+    secrets:
+      dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+      dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}

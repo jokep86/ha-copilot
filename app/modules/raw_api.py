@@ -29,9 +29,10 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+import os
 _READONLY_METHODS = {"GET", "HEAD"}
-_HA_BASE = "http://supervisor/core/api"
-_SUP_BASE = "http://supervisor"
+_HA_BASE = os.environ.get("HA_API_URL", "http://supervisor/core/api")
+_SUP_BASE = os.environ.get("SUPERVISOR_URL", "http://supervisor")
 
 MAX_RESPONSE_CHARS = 3000
 

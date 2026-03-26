@@ -169,7 +169,10 @@ class DevicesModule(ModuleBase):
         if not args:
             await self._reply(context, "Usage: /status \\<entity\\_id\\>")
             return
-        entity_id = args[0]
+        entity_id, err = await self._discovery.resolve_entity_id(args[0])
+        if err:
+            await self._reply(context, error_msg(err))
+            return
         try:
             state = await self._ha.get_state(entity_id)
             text = entity_state_msg(
@@ -187,7 +190,11 @@ class DevicesModule(ModuleBase):
         if not args:
             await self._reply(context, "Usage: /toggle \\<entity\\_id\\>")
             return
-        await self._do_toggle(args[0], context)
+        entity_id, err = await self._discovery.resolve_entity_id(args[0])
+        if err:
+            await self._reply(context, error_msg(err))
+            return
+        await self._do_toggle(entity_id, context)
 
     async def _do_toggle(self, entity_id: str, context: "CommandContext") -> None:
         domain = entity_id.split(".")[0]

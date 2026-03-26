@@ -14,7 +14,8 @@ from app.observability.logger import get_logger
 
 logger = get_logger(__name__)
 
-SUPERVISOR_BASE_URL = "http://supervisor"
+import os
+SUPERVISOR_BASE_URL = os.environ.get("SUPERVISOR_URL", "http://supervisor")
 RETRY_DELAYS = (1, 2, 4)
 
 

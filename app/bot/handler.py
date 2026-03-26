@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from app.core.command_queue import CommandQueueManager
     from app.core.degradation import DegradationMap
     from app.core.module_registry import ModuleRegistry
+    from app.database import Database
     from app.middleware.auth import AuthMiddleware
     from app.observability.health import DeadManSwitch
 
@@ -37,35 +38,35 @@ _HELP_TEXT = """\
 *HA Copilot v{version}* — Home Assistant AI Admin
 
 *Devices & Entities*
-/devices \[domain\] — List & control devices
-/status <entity> — Entity state
-/entities \[domain\] — List entities
-/history <entity> \[hours\] — State history
+/devices \\[domain\\] — List & control devices
+/status \\<entity\\> — Entity state
+/entities \\[domain\\] — List entities
+/history \\<entity\\> \\[hours\\] — State history
 
 *Automations & Scenes*
-/auto — List / create / edit automations \(supports choose, repeat, parallel\)
+/auto — List / create / edit automations \\(supports choose, repeat, parallel\\)
 /scenes — List / create scenes
 /schedule — Scheduled commands
 /explain — AI documentation
 
 *Config & Dashboard*
-/config — Show / check configuration\.yaml
+/config — Show / check configuration\\.yaml
 /integrations — Installed integrations
 /users — HA users
 /dash — Lovelace dashboards
 
 *System*
 /sys — System health
-/logs \[source\] — System logs
-/addons — Add\-ons
+/logs \\[source\\] — System logs
+/addons — Add\\-ons
 /backup — Backups
 /restart — Restart core/supervisor
 /reboot — Host reboot
 
 *Media & Data*
-/camera <entity> — Camera snapshot
-/chart <entity> \[hours\] — History chart
-/export automations\|scenes\|config — Export file
+/camera \\<entity\\> — Camera snapshot
+/chart \\<entity\\> \\[hours\\] — History chart
+/export automations\\|scenes\\|config — Export file
 /snapshot — Entity snapshots
 /energy — Energy reports
 
@@ -75,27 +76,45 @@ _HELP_TEXT = """\
 /subs — Active subscriptions
 
 *Tools*
-/raw <method> <path> — Direct API call
-/template <jinja2> — Test template
+/raw \\<method\\> \\<path\\> — Direct API call
+/template \\<jinja2\\> — Test template
 /migrate — Migration check
 /quick — Quick action shortcuts
-/audit export \[days\] — Audit log export
+/audit export \\[days\\] — Audit log export
 /undo — Undo last action
 
 _Just type naturally — AI handles it\\._\
 """
 
 _WELCOME_TEXT = """\
-👋 *Welcome to HA Copilot v{version}\\!*
+👋 *Welcome back to HA Copilot v{version}\\!*
+
+Type /help for commands, or just start talking\\.\
+"""
+
+_WIZARD_TEXT = """\
+🏠 *Welcome to HA Copilot v{version}\\!*
 
 Your full Home Assistant administration assistant via Telegram\\.
 
-• Control devices: _"turn on the living room light"_
-• Create automations: _"turn off all lights at midnight"_
-• Analyze logs: _"why is zigbee2mqtt crashing?"_
-• Manage your HA from your phone
+*What you can do:*
+• 💡 _"turn on the living room light"_ — control any device
+• 🤖 _"create an automation that turns off lights at midnight"_
+• 📊 _"what's the temperature in the bedroom?"_
+• 🔍 _"why is zigbee2mqtt crashing?"_ — AI log analysis
+• 📸 /camera, /chart, /energy, /snapshot — media & data
 
-Type /help to see all commands, or just start talking\\!\
+*Getting started:*
+1\\. Type /devices to see all your devices
+2\\. Type /sys for system health
+3\\. Or just type naturally — the AI handles it
+
+*Quick tips:*
+• Fuzzy matching: "living room" finds `light\\.living_room`
+• /auto to manage automations
+• /help for the full command list
+
+✅ Setup complete\\. Happy home automating\\!\
 """
 
 
@@ -121,6 +140,7 @@ class BotHandler:
         auth: "AuthMiddleware",
         degradation: "DegradationMap",
         dead_man_switch: "DeadManSwitch",
+        db: "Database | None" = None,
     ) -> None:
         self.config = config
         self.registry = module_registry
@@ -128,6 +148,7 @@ class BotHandler:
         self.auth = auth
         self.degradation = degradation
         self.dms = dead_man_switch
+        self.db = db
         self._app: Optional[Application] = None
 
     async def setup(self) -> None:
@@ -150,6 +171,9 @@ class BotHandler:
         self._app.add_handler(
             MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_text)
         )
+
+        # Global error handler — catches all unhandled exceptions in handlers
+        self._app.add_error_handler(self._handle_error)
 
         # Set visible bot command menu
         await self._app.bot.set_my_commands(
@@ -209,6 +233,27 @@ class BotHandler:
         for uid in self.config.allowed_telegram_ids:
             await self.send_message(uid, text, parse_mode=ParseMode.MARKDOWN_V2)
 
+    # --- Error handler ---
+
+    async def _handle_error(
+        self, update: object, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """Global Telegram error handler — log every unhandled exception."""
+        logger.error(
+            "unhandled_telegram_error",
+            error=str(context.error),
+            update=str(update)[:200],
+        )
+        # Notify the user if possible
+        if isinstance(update, Update) and update.effective_message:
+            try:
+                await update.effective_message.reply_text(
+                    "🔴 Something went wrong processing your request\\. Please try again\\.",
+                    parse_mode=ParseMode.MARKDOWN_V2,
+                )
+            except Exception:
+                pass  # Don't recurse if the reply itself fails
+
     # --- Update handlers ---
 
     async def _auth_check(self, update: Update) -> bool:
@@ -219,6 +264,18 @@ class BotHandler:
     ) -> None:
         if not await self._auth_check(update):
             return
+
+        # Show the onboarding wizard on first run, then a short welcome.
+        if self.db:
+            onboarded = await self.db.get_setting("onboarded")
+            if not onboarded:
+                await self.db.set_setting("onboarded", "1")
+                await update.message.reply_text(
+                    _WIZARD_TEXT.format(version=escape_md(VERSION)),
+                    parse_mode=ParseMode.MARKDOWN_V2,
+                )
+                return
+
         await update.message.reply_text(
             _WELCOME_TEXT.format(version=escape_md(VERSION)),
             parse_mode=ParseMode.MARKDOWN_V2,

@@ -1,16 +1,16 @@
-name: Deploy
+name: Build and deploy to Docker Hub (Production)
 
 on:
   push:
     branches:
-      - '**'
+      - 'main'
 
 jobs:
-  docker:
+  docker-to-production:
     uses: jokep86/shared-github-workflows/.github/workflows/docker-build-push-dockerhub.yml@main
     with:
       dockerhub-image: jokep/ha-copilot
-      development-environment: development
+      development-environment: production
       production-environment: production
     secrets:
       dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}

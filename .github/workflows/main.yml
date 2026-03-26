@@ -7,7 +7,7 @@ on:
     tags:
       - "v*"
 
-      
+
 jobs:
   docker:
     uses: jokep86/shared-github-workflows/.github/workflows/docker-build-push-dockerhub.yml@main
@@ -17,3 +17,5 @@ jobs:
     secrets:
       dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      

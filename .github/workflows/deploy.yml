@@ -68,11 +68,11 @@ jobs:
       - name: Configurar credenciales de AWS
         run: |
           echo "[TEST] aws-actions/configure-aws-credentials@v4"
-          echo "[TEST]   role-to-assume: ${{ inputs.aws-role-arn }}"
+          echo "[TEST]   role-to-assume: (input aws-role-arn)"
           echo "[TEST]   aws-region: (secret AWS_REGION)"
         # uses: aws-actions/configure-aws-credentials@v4
         # with:
-        #   role-to-assume: ${{ inputs.aws-role-arn }}
+        #   role-to-assume: <aws-role-arn>
         #   aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Autenticarse en Amazon ECR

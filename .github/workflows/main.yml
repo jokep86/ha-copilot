@@ -126,7 +126,7 @@ jobs:
     needs: [deploy-dev, build-and-push]
     if: github.ref_name == 'main'
     runs-on: ubuntu-latest
-    # environment: production
+    environment: production
     steps:
       - name: Desplegar imagen en PROD
         run: |

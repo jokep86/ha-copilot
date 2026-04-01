@@ -1,0 +1,34 @@
+name: Deploy to PROD
+
+on:
+  workflow_run:
+    workflows: ["Deploy"]
+    branches: [main]
+    types: [completed]
+
+# Evita deploys paralelos en prod; nunca cancela un deploy en curso
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+
+  # ─────────────────────────────────────────────────────────────
+  # Solo corre si el workflow de Deploy terminó exitosamente.
+  # El environment 'production' debe tener revisores requeridos
+  # configurados en GitHub Settings para funcionar como gate manual.
+  # ─────────────────────────────────────────────────────────────
+  deploy-prod:
+    name: Deploy to PROD
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Desplegar imagen en PROD
+        run: |
+          echo "[TEST] environment: production"
+          echo "[TEST] imagen: ${{ github.event.workflow_run.head_sha }}"
+          echo "[TEST] aws ecs update-service --cluster <ECS_CLUSTER> --service <ECS_SERVICE> --force-new-deployment"

@@ -1,0 +1,118 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag de la imagen Docker a construir y subir (ej. release-v1.2.3 o develop-v1.2.3)'
+        required: true
+        type: string
+
+# Evita deploys paralelos en la misma rama; nunca cancela un deploy en curso
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+
+  # ─────────────────────────────────────────────────────────────
+  # Job 1: Valida que el tag ingresado coincida con el patrón
+  # esperado para la rama que dispara el workflow.
+  # ─────────────────────────────────────────────────────────────
+  validate-tag:
+    name: Validate Tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.check.outputs.tag }}
+    steps:
+      - name: Verificar formato del tag según las reglas de rama
+        id: check
+        shell: bash
+        run: |
+          TAG="${{ inputs.tag }}"
+          BRANCH="${{ github.ref_name }}"
+
+          if [[ "$BRANCH" == "main" ]]; then
+            PATTERN='^release-v[0-9]+\.[0-9]+\.[0-9]+$'
+            EXAMPLE="release-v1.2.3"
+          else
+            PATTERN='^develop-v[0-9]+\.[0-9]+\.[0-9]+$'
+            EXAMPLE="develop-v1.2.3"
+          fi
+
+          if [[ ! "$TAG" =~ $PATTERN ]]; then
+            echo "::error::Tag inválido '${TAG}' para la rama '${BRANCH}'."
+            echo "::error::Formato esperado: ${EXAMPLE}  (patrón: ${PATTERN})"
+            exit 1
+          fi
+
+          echo "Tag '${TAG}' válido para la rama '${BRANCH}'."
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+  # ─────────────────────────────────────────────────────────────
+  # Job 2: Construye la imagen Docker y la sube a Amazon ECR.
+  # ─────────────────────────────────────────────────────────────
+  build-and-push:
+    name: Build and Push to ECR
+    needs: validate-tag
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.build-push.outputs.image }}
+    steps:
+      - name: Clonar código fuente
+        uses: actions/checkout@v4
+
+      - name: Configurar credenciales de AWS
+        run: |
+          echo "[TEST] aws-actions/configure-aws-credentials@v4"
+          echo "[TEST]   role-to-assume: (input aws-role-arn)"
+          echo "[TEST]   aws-region: (secret AWS_REGION)"
+        # uses: aws-actions/configure-aws-credentials@v4
+        # with:
+        #   role-to-assume: <aws-role-arn>
+        #   aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Autenticarse en Amazon ECR
+        id: login-ecr
+        run: |
+          echo "[TEST] aws-actions/amazon-ecr-login@v2"
+          echo "[TEST]   registry output simulado: 123456789.dkr.ecr.us-east-1.amazonaws.com"
+          echo "registry=123456789.dkr.ecr.us-east-1.amazonaws.com" >> "$GITHUB_OUTPUT"
+        # uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Construir y subir imagen Docker
+        id: build-push
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ha-copilot
+          IMAGE_TAG: ${{ needs.validate-tag.outputs.tag }}
+        run: |
+          IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+
+          docker build -t "$IMAGE_URI" .
+          echo "[TEST] docker push $IMAGE_URI (omitido en modo test)"
+          # docker push "$IMAGE_URI"
+
+          echo "image=${IMAGE_URI}" >> "$GITHUB_OUTPUT"
+          echo "Imagen construida: ${IMAGE_URI}"
+
+  # ─────────────────────────────────────────────────────────────
+  # Job 3: Deploy al ambiente DEV.
+  # - Desde main        → environment 'dev-auto'     (sin aprobación)
+  # - Desde otra rama   → environment 'dev-approval' (requiere revisores)
+  # ─────────────────────────────────────────────────────────────
+  deploy-dev:
+    name: Deploy to DEV
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    # environment: ${{ github.ref_name == 'main' && 'dev-auto' || 'dev-approval' }}
+    steps:
+      - name: Desplegar imagen en DEV
+        run: |
+          echo "[TEST] environment: ${{ github.ref_name == 'main' && 'dev-auto' || 'dev-approval' }}"
+          echo "[TEST] aws ecs update-service --cluster <ECS_CLUSTER> --service <ECS_SERVICE> --force-new-deployment"
+          echo "[TEST] imagen: ${{ needs.build-and-push.outputs.image }}"
+

@@ -133,3 +133,5 @@ jobs:
           echo "[TEST] environment: production"
           echo "[TEST] aws ecs update-service --cluster <ECS_CLUSTER> --service <ECS_SERVICE> --force-new-deployment"
           echo "[TEST] imagen: ${{ needs.build-and-push.outputs.image }}"
+
+          

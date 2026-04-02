@@ -136,3 +136,190 @@ class TestAutomationsModule:
     async def test_to_entity_id(self):
         assert AutomationsModule._to_entity_id("Turn on lights") == "automation.turn_on_lights"
         assert AutomationsModule._to_entity_id("Say hello!") == "automation.say_hello"
+
+    async def test_list_api_error(self):
+        mod = AutomationsModule()
+        app, ha, _ = _make_app()
+        ha.get_automations = AsyncMock(side_effect=Exception("HA unreachable"))
+        await mod.setup(app)
+        ctx = _ctx()
+        await mod.handle_command("auto", [], ctx)
+        text = ctx.update.message.reply_text.call_args[0][0]
+        assert "Cannot list automations" in text or "HA unreachable" in text
+
+    async def test_list_many_truncated(self):
+        many = [{"id": f"auto_{i}", "alias": f"Auto {i}", "mode": "single", "description": ""} for i in range(35)]
+        mod = AutomationsModule()
+        app, ha, _ = _make_app(autos=many)
+        await mod.setup(app)
+        ctx = _ctx()
+        await mod.handle_command("auto", [], ctx)
+        text = ctx.update.message.reply_text.call_args[0][0]
+        assert "more" in text
+
+    async def test_list_copilot_tag(self):
+        autos = [{"id": "x", "alias": "Bot auto", "mode": "single", "description": "ha_copilot"}]
+        mod = AutomationsModule()
+        app, ha, _ = _make_app(autos=autos)
+        await mod.setup(app)
+        ctx = _ctx()
+        await mod.handle_command("auto", [], ctx)
+        text = ctx.update.message.reply_text.call_args[0][0]
+        assert "🤖" in text
+
+    async def test_action_query_only_no_action_shows_usage(self):
+        mod = AutomationsModule()
+        app, ha, _ = _make_app()
+        await mod.setup(app)
+        ctx = _ctx()
+        await mod.handle_command("auto", ["sunrise"], ctx)
+        text = ctx.update.message.reply_text.call_args[0][0]
+        assert "Usage" in text
+
+    async def test_unknown_action_error(self):
+        mod = AutomationsModule()
+        app, ha, _ = _make_app()
+        await mod.setup(app)
+        ctx = _ctx()
+        await mod.handle_command("auto", ["sunrise", "explode"], ctx)
+        text = ctx.update.message.reply_text.call_args[0][0]
+        assert "Unknown action" in text
+
+    async def test_action_api_error_on_turn_on(self):
+        mod = AutomationsModule()
+        app, ha, _ = _make_app()
+        ha.call_service = AsyncMock(side_effect=Exception("call failed"))
+        await mod.setup(app)
+        ctx = _ctx()
+        await mod.handle_command("auto", ["sunrise", "on"], ctx)
+        text = ctx.update.message.reply_text.call_args[0][0]
+        assert "Failed" in text or "call failed" in text
+
+    async def test_trigger_api_error(self):
+        mod = AutomationsModule()
+        app, ha, _ = _make_app()
+        ha.call_service = AsyncMock(side_effect=Exception("trigger failed"))
+        await mod.setup(app)
+        ctx = _ctx()
+        await mod.handle_command("auto", ["sunrise", "trigger"], ctx)
+        text = ctx.update.message.reply_text.call_args[0][0]
+        assert "Failed" in text or "trigger failed" in text
+
+    async def test_delete_confirmed_api_error(self):
+        mod = AutomationsModule()
+        app, ha, _ = _make_app()
+        ha.delete_automation = AsyncMock(side_effect=Exception("delete failed"))
+        await mod.setup(app)
+        ctx = _ctx()
+        await mod.handle_command("auto", ["sunrise", "delete", "confirm"], ctx)
+        text = ctx.update.message.reply_text.call_args[0][0]
+        assert "Delete failed" in text or "delete failed" in text
+
+    async def test_create_no_description_shows_usage(self):
+        mod = AutomationsModule()
+        app, ha, _ = _make_app()
+        await mod.setup(app)
+        ctx = _ctx()
+        await mod.handle_command("auto", ["create"], ctx)
+        text = ctx.update.message.reply_text.call_args[0][0]
+        assert "Usage" in text
+
+    async def test_create_ai_disabled(self):
+        mod = AutomationsModule()
+        app, ha, _ = _make_app()
+        app.config.ai_enabled = False
+        await mod.setup(app)
+        ctx = _ctx()
+        await mod.handle_command("auto", ["create", "turn on lights at sunrise"], ctx)
+        text = ctx.update.message.reply_text.call_args[0][0]
+        assert "AI is disabled" in text
+
+    async def test_create_generator_error(self):
+        mod = AutomationsModule()
+        app, ha, _ = _make_app()
+        await mod.setup(app)
+
+        mock_gen = MagicMock()
+        mock_gen.generate_automation = AsyncMock(side_effect=Exception("AI unavailable"))
+        mod._generator = mock_gen
+
+        ctx = _ctx()
+        await mod.handle_command("auto", ["create", "turn lights on at sunrise"], ctx)
+        # Multiple replies: generating message + error
+        last = ctx.update.message.reply_text.call_args_list[-1][0][0]
+        assert "YAML generation failed" in last or "AI unavailable" in last
+
+    async def test_create_shows_preview(self):
+        mod = AutomationsModule()
+        app, ha, _ = _make_app()
+        await mod.setup(app)
+
+        from app.schemas.automation_schema import AutomationConfig
+        mock_config = MagicMock(spec=AutomationConfig)
+        mock_config.alias = "Test automation"
+        mock_config.model_dump = MagicMock(return_value={
+            "alias": "Test automation",
+            "trigger": [{"platform": "time", "at": "07:00:00"}],
+            "action": [{"service": "light.turn_on"}]
+        })
+
+        mock_gen = MagicMock()
+        mock_gen.generate_automation = AsyncMock(return_value=mock_config)
+        mod._generator = mock_gen
+
+        ctx = _ctx()
+        await mod.handle_command("auto", ["create", "turn lights on at 7am"], ctx)
+        # Last call should be preview with keyboard
+        last_call = ctx.update.message.reply_text.call_args_list[-1]
+        assert last_call is not None
+
+    async def test_find_exact_id(self):
+        mod = AutomationsModule()
+        result = mod._find(_AUTOS, "abc123")
+        assert result is not None
+        assert result["id"] == "abc123"
+
+    async def test_find_partial_alias(self):
+        mod = AutomationsModule()
+        result = mod._find(_AUTOS, "sunrise")
+        assert result is not None
+        assert "sunrise" in result["alias"].lower()
+
+    async def test_find_no_match(self):
+        mod = AutomationsModule()
+        result = mod._find(_AUTOS, "nonexistent_xyz")
+        assert result is None
+
+    async def test_action_get_automations_error(self):
+        mod = AutomationsModule()
+        app, ha, _ = _make_app()
+        ha.get_automations = AsyncMock(side_effect=Exception("connection refused"))
+        await mod.setup(app)
+        ctx = _ctx()
+        await mod.handle_command("auto", ["sunrise", "on"], ctx)
+        text = ctx.update.message.reply_text.call_args[0][0]
+        assert "Cannot get automations" in text or "connection refused" in text
+
+    async def test_edit_ai_disabled(self):
+        mod = AutomationsModule()
+        app, ha, _ = _make_app()
+        app.config.ai_enabled = False
+        await mod.setup(app)
+        ctx = _ctx()
+        await mod.handle_command("auto", ["sunrise", "edit", "add condition"], ctx)
+        text = ctx.update.message.reply_text.call_args[0][0]
+        assert "AI is disabled" in text
+
+    async def test_edit_generator_error(self):
+        mod = AutomationsModule()
+        app, ha, _ = _make_app()
+        await mod.setup(app)
+
+        mock_gen = MagicMock()
+        mock_gen.generate_automation_edit = AsyncMock(side_effect=Exception("edit failed"))
+        mod._generator = mock_gen
+
+        ctx = _ctx()
+        await mod.handle_command("auto", ["sunrise", "edit", "add condition at night"], ctx)
+        last = ctx.update.message.reply_text.call_args_list[-1][0][0]
+        assert "Edit generation failed" in last or "edit failed" in last

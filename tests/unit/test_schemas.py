@@ -209,3 +209,62 @@ def test_system_info_defaults() -> None:
     assert info.ha_version is None
     assert info.addons == []
     assert info.metrics.cpu_percent is None
+
+
+# --- DashboardSchema ---
+
+def test_lovelace_view_defaults() -> None:
+    from app.schemas.dashboard_schema import LovelaceView
+    view = LovelaceView(title="Living Room")
+    assert view.title == "Living Room"
+    assert view.path is None
+    assert view.cards == []
+
+
+def test_lovelace_view_with_cards() -> None:
+    from app.schemas.dashboard_schema import LovelaceView
+    view = LovelaceView(title="Test", path="test", cards=[{"type": "entity"}])
+    assert view.path == "test"
+    assert len(view.cards) == 1
+
+
+def test_dashboard_config_defaults() -> None:
+    from app.schemas.dashboard_schema import DashboardConfig
+    cfg = DashboardConfig(title="My Dashboard")
+    assert cfg.title == "My Dashboard"
+    assert cfg.views == []
+
+
+def test_dashboard_config_with_views() -> None:
+    from app.schemas.dashboard_schema import DashboardConfig, LovelaceView
+    cfg = DashboardConfig(
+        title="Home",
+        views=[LovelaceView(title="Main"), LovelaceView(title="Energy")],
+    )
+    assert len(cfg.views) == 2
+
+
+# --- EventSubscription ---
+
+def test_event_subscription_defaults() -> None:
+    from app.schemas.event_subscription import EventSubscription
+    sub = EventSubscription(event_type="state_changed")
+    assert sub.event_type == "state_changed"
+    assert sub.domain_filter == []
+    assert sub.entity_pattern is None
+    assert sub.cooldown_seconds == 60
+    assert sub.enabled is True
+
+
+def test_event_subscription_full() -> None:
+    from app.schemas.event_subscription import EventSubscription
+    sub = EventSubscription(
+        event_type="automation_triggered",
+        domain_filter=["light", "switch"],
+        entity_pattern="light.*",
+        cooldown_seconds=300,
+        enabled=False,
+    )
+    assert sub.domain_filter == ["light", "switch"]
+    assert sub.cooldown_seconds == 300
+    assert sub.enabled is False

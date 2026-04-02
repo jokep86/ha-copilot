@@ -1,5 +1,5 @@
 name: "HA Copilot"
-version: "0.1.0"
+version: "0.15.0"
 slug: "ha-copilot"
 description: >-
   Full Home Assistant administration co-pilot via Telegram.

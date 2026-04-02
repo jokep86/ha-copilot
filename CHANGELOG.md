@@ -5,6 +5,37 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.15.0] — 2026-04-02
+
+### Added — Phase 8: Open Source Polish
+
+- `hacs.json` — HACS repository compatibility manifest
+- `icon.png` (128×128) and `logo.png` (256×256) — add-on identity assets
+- `tests/unit/test_entities.py` — 15 tests for EntitiesModule (was 0% coverage)
+- `tests/unit/test_scenes.py` — 20 tests for ScenesModule (was 0%)
+- `tests/unit/test_notifications.py` — 12 tests for NotificationsModule (was 0%)
+- `tests/unit/test_raw_api.py` — 14 tests for RawApiModule (was 0%)
+- `tests/unit/test_template_tester.py` — 12 tests for TemplateTesterModule (was 0%)
+- `tests/unit/test_health.py` — 10 tests for HealthPulse + DeadManSwitch (was 0%)
+- `tests/unit/test_plugins_module.py` — 13 tests for PluginsModule (was 0%)
+- `tests/unit/test_alert_conditions.py` — 17 tests for AlertConditionChecker
+- `tests/unit/test_audit.py` — 8 tests for AIAuditLog
+- `tests/unit/test_logger.py` — 6 tests for setup_logging
+- `tests/unit/test_formatters.py` — 20 tests for bot/formatters
+- `tests/unit/test_ha_client.py` — 24 tests for HAClient (REST client)
+- `tests/unit/test_database.py` — 18 tests for Database (lifecycle, migrations, maintenance, settings)
+- `tests/unit/test_supervisor_client.py` — 21 tests for SupervisorClient
+- Extended `tests/unit/test_automations.py` with 20 additional cases
+  (list errors, truncation, create/edit flows, _find helper)
+- Extended `tests/unit/test_schemas.py` with DashboardSchema and EventSubscription tests
+
+### Changed
+
+- Test suite: 347 → 597 tests (+250); overall coverage 51% → 70%
+- All Phase 8 deliverables complete: DOCS.md, README.md, CHANGELOG.md,
+  HACS structure, icons, security review, fuzzy matching, onboarding wizard,
+  quick actions, migration assistant, full test coverage
+
 ## [0.14.0] — 2026-03-26
 
 ### Added — Phase 8: Onboarding Wizard
